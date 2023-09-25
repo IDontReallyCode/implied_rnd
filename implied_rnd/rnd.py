@@ -145,9 +145,25 @@ def getrnd(K: np.ndarray, V: np.ndarray, S: float, rf: float, t: float, method: 
         # now get Black-Scholes-Merton put prices.
         p = bls('p', S=S, K=outputx, t=t, r=rf, sigma=outputy, return_as='np')
         # plt.plot(outputx[interpmask], p[interpmask]); plt.show()
+        
         # get convexity
         outputf = np.exp(rf * t) * np.gradient(np.gradient(p, outputx, edge_order=2), outputx, edge_order=2)
         # plt.plot(outputx, outputf); plt.show(); #plt.xlim(5,15), 
+        
+        # now, we need to smooth the disconnection points and smooth them out
+        mask = np.array([True, False, False, False, True])
+        indexhole = np.argmin(extlftmask)
+        x = outputx[(indexhole - 2):(indexhole + 2 + 1)][mask]
+        y = outputf[(indexhole - 2):(indexhole + 2 + 1)][mask]
+        outputf[indexhole-1:indexhole+1+1] = np.interp(outputx[(indexhole - 2):(indexhole + 2 + 1)][~mask], x, y)
+        indexhole = np.argmax(extrgtmask)
+        x = outputx[(indexhole - 3):(indexhole + 1 + 1)][mask]
+        y = outputf[(indexhole - 3):(indexhole + 1 + 1)][mask]
+        outputf[indexhole-2:indexhole+1] = np.interp(outputx[(indexhole - 3):(indexhole+1+1)][~mask], x, y)
+
+        # plt.plot(outputx, outputf); plt.show()
+                
+        # pass
         
         
     elif method==METHOD_STDR_EXTRADEN:
@@ -204,6 +220,7 @@ def getrnd(K: np.ndarray, V: np.ndarray, S: float, rf: float, t: float, method: 
     else:
         raise ValueError("Invalid method. Use the recommended methods") 
     
+
 
     return outputx, outputy, _scale(outputx, outputf)
     pause=1
