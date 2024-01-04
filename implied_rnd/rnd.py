@@ -13,6 +13,7 @@ from py_vollib_vectorized import vectorized_black_scholes as bls
 # from optimizing import _fitgenpareto
 import implied_rnd.optimizing as opt
 from scipy.stats import genpareto
+from scipy.integrate import quad
 
 import matplotlib.pyplot as plt
 
@@ -30,7 +31,15 @@ INTERP_POLYM6 = 16
 INTERP_POLYM7 = 17
 INTERP_POLYM8 = 18
 INTERP_POLYM9 = 19
-INTERP_FACTR1 = 21
+
+INTERP_FACTR1 = 21      # Just one hyperbolla
+INTERP_FACTR2 = 22      # Two different hyperbollas
+INTERP_FACTR3 = 23      # Two hyperbollas + x for an asymetric feature
+INTERP_FACTR4 = 24      # Two hyperbollas + arctan(x) for an asymetric/distortion feature
+INTERP_FACTR5 = 25      # Two hyperbollas + x for asymetry + arctan(x) for an asymetric/distortion feature
+INTERP_FACTR6 = 26      # Just one hyperbolla + x for asymetry 
+INTERP_FACTR7 = 27      # Just one hyperbolla + arctan(x) for an asymetric/distortion feature
+INTERP_FACTR8 = 28      # Just one hyperbolla + x for asymetry + arctan(x) for an asymetric/distortion feature
 
 EXTRAP_LINEAR = 10       # works only for METHOD_STDR_EXTRAPIV
 EXTRAP_GPARTO = 20       # works only for METHOD_STDR_EXTRADEN
@@ -73,11 +82,149 @@ def _interpolate(interp: int, x: np.ndarray, y: np.ndarray, newx: np.ndarray) ->
         
         newy = np.matmul(X,beta)
         # pass
+    elif interp==22:
+        # Fit a factor model with the SET#2
+        X = np.ones((len(x),3))
+        X[:,1] = np.sqrt(1+x**2)-1      # symmetric-smile :: Hyperbolla b=1
+        X[:,2] = np.sqrt(0.1+x**2)-np.sqrt(0.1)      # symmetric-smile :: Hyperbolla b=sqrt(0.1)
+        # X[:,3] = np.arctan(x)           # atan = np.arctan(m)
+        # X[:,4] = np.sin(x)              # m-shape
+        # plt.plot(x, X[:,1]); plt.show()
+        beta = np.linalg.lstsq(X,y,rcond=-1)[0]
         
+        X = np.ones((len(newx),3))
+        X[:,1] = np.sqrt(1+newx**2)-1      # symmetric-smile :: Hyperbolla b=1
+        X[:,2] = np.sqrt(0.1+newx**2)-np.sqrt(0.1)      # symmetric-smile :: Hyperbolla b=sqrt(0.1)
+        # X[:,3] = np.arctan(newx)           # atan = np.arctan(m)
+        # X[:,4] = np.sin(newx)              # m-shape
+        
+        newy = np.matmul(X,beta)
+    elif interp==23:
+        # Fit a factor model with the SET#3
+        X = np.ones((len(x),4))
+        X[:,1] = np.sqrt(1+x**2)-1      # symmetric-smile :: Hyperbolla b=1
+        X[:,2] = np.sqrt(0.1+x**2)-np.sqrt(0.1)      # symmetric-smile :: Hyperbolla b=sqrt(0.1)
+        X[:,3] = x
+        # X[:,3] = np.arctan(x)           # atan = np.arctan(m)
+        # X[:,4] = np.sin(x)              # m-shape
+        # plt.plot(x, X[:,1]); plt.show()
+        beta = np.linalg.lstsq(X,y,rcond=-1)[0]
+        
+        X = np.ones((len(newx),4))
+        X[:,1] = np.sqrt(1+newx**2)-1      # symmetric-smile :: Hyperbolla b=1
+        X[:,2] = np.sqrt(0.1+newx**2)-np.sqrt(0.1)      # symmetric-smile :: Hyperbolla b=sqrt(0.1)
+        X[:,3] = newx
+        # X[:,3] = np.arctan(newx)           # atan = np.arctan(m)
+        # X[:,4] = np.sin(newx)              # m-shape
+        
+        newy = np.matmul(X,beta)        
+    elif interp==24:
+        # Fit a factor model with the SET#3
+        X = np.ones((len(x),4))
+        X[:,1] = np.sqrt(1+x**2)-1      # symmetric-smile :: Hyperbolla b=1
+        X[:,2] = np.sqrt(0.1+x**2)-np.sqrt(0.1)      # symmetric-smile :: Hyperbolla b=sqrt(0.1)
+        # X[:,3] = x
+        X[:,3] = np.arctan(x)           # atan = np.arctan(m)
+        # X[:,4] = np.sin(x)              # m-shape
+        # plt.plot(x, X[:,1]); plt.show()
+        beta = np.linalg.lstsq(X,y,rcond=-1)[0]
+        
+        X = np.ones((len(newx),4))
+        X[:,1] = np.sqrt(1+newx**2)-1      # symmetric-smile :: Hyperbolla b=1
+        X[:,2] = np.sqrt(0.1+newx**2)-np.sqrt(0.1)      # symmetric-smile :: Hyperbolla b=sqrt(0.1)
+        # X[:,3] = newx
+        X[:,3] = np.arctan(newx)           # atan = np.arctan(m)
+        # X[:,4] = np.sin(newx)              # m-shape
+        
+        newy = np.matmul(X,beta)        
+    elif interp==25:
+        # Fit a factor model with the SET#3
+        X = np.ones((len(x),5))
+        X[:,1] = np.sqrt(1+x**2)-1      # symmetric-smile :: Hyperbolla b=1
+        X[:,2] = np.sqrt(0.1+x**2)-np.sqrt(0.1)      # symmetric-smile :: Hyperbolla b=sqrt(0.1)
+        X[:,3] = x
+        X[:,4] = np.arctan(x)           # atan = np.arctan(m)
+        # X[:,4] = np.sin(x)              # m-shape
+        # plt.plot(x, X[:,1]); plt.show()
+        beta = np.linalg.lstsq(X,y,rcond=-1)[0]
+        
+        X = np.ones((len(newx),5))
+        X[:,1] = np.sqrt(1+newx**2)-1      # symmetric-smile :: Hyperbolla b=1
+        X[:,2] = np.sqrt(0.1+newx**2)-np.sqrt(0.1)      # symmetric-smile :: Hyperbolla b=sqrt(0.1)
+        X[:,3] = newx
+        X[:,4] = np.arctan(newx)           # atan = np.arctan(m)
+        # X[:,4] = np.sin(newx)              # m-shape
+        
+        newy = np.matmul(X,beta)        
+
+    elif interp==26:
+        # Fit a factor model with the SET#3
+        X = np.ones((len(x),3))
+        X[:,1] = np.sqrt(1+x**2)-1      # symmetric-smile :: Hyperbolla b=1
+        # X[:,2] = np.sqrt(0.1+x**2)-np.sqrt(0.1)      # symmetric-smile :: Hyperbolla b=sqrt(0.1)
+        X[:,2] = x
+        # X[:,4] = np.arctan(x)           # atan = np.arctan(m)
+        # X[:,4] = np.sin(x)              # m-shape
+        # plt.plot(x, X[:,1]); plt.show()
+        beta = np.linalg.lstsq(X,y,rcond=-1)[0]
+        
+        X = np.ones((len(newx),3))
+        X[:,1] = np.sqrt(1+newx**2)-1      # symmetric-smile :: Hyperbolla b=1
+        # X[:,2] = np.sqrt(0.1+newx**2)-np.sqrt(0.1)      # symmetric-smile :: Hyperbolla b=sqrt(0.1)
+        X[:,2] = newx
+        # X[:,4] = np.arctan(newx)           # atan = np.arctan(m)
+        # X[:,4] = np.sin(newx)              # m-shape
+        
+        newy = np.matmul(X,beta)        
+
+    elif interp==27:
+        # Fit a factor model with the SET#3
+        X = np.ones((len(x),3))
+        X[:,1] = np.sqrt(1+x**2)-1      # symmetric-smile :: Hyperbolla b=1
+        # X[:,2] = np.sqrt(0.1+x**2)-np.sqrt(0.1)      # symmetric-smile :: Hyperbolla b=sqrt(0.1)
+        # X[:,3] = x
+        X[:,2] = np.arctan(x)           # atan = np.arctan(m)
+        # X[:,4] = np.sin(x)              # m-shape
+        # plt.plot(x, X[:,1]); plt.show()
+        beta = np.linalg.lstsq(X,y,rcond=-1)[0]
+        
+        X = np.ones((len(newx),3))
+        X[:,1] = np.sqrt(1+newx**2)-1      # symmetric-smile :: Hyperbolla b=1
+        # X[:,2] = np.sqrt(0.1+newx**2)-np.sqrt(0.1)      # symmetric-smile :: Hyperbolla b=sqrt(0.1)
+        # X[:,3] = newx
+        X[:,2] = np.arctan(newx)           # atan = np.arctan(m)
+        # X[:,4] = np.sin(newx)              # m-shape
+        
+        newy = np.matmul(X,beta)        
+
+    elif interp==28:
+        # Fit a factor model with the SET#3
+        X = np.ones((len(x),4))
+        X[:,1] = np.sqrt(1+x**2)-1      # symmetric-smile :: Hyperbolla b=1
+        # X[:,2] = np.sqrt(0.1+x**2)-np.sqrt(0.1)      # symmetric-smile :: Hyperbolla b=sqrt(0.1)
+        X[:,2] = x
+        X[:,3] = np.arctan(x)           # atan = np.arctan(m)
+        # X[:,4] = np.sin(x)              # m-shape
+        # plt.plot(x, X[:,1]); plt.show()
+        beta = np.linalg.lstsq(X,y,rcond=-1)[0]
+        
+        X = np.ones((len(newx),4))
+        X[:,1] = np.sqrt(1+newx**2)-1      # symmetric-smile :: Hyperbolla b=1
+        # X[:,2] = np.sqrt(0.1+newx**2)-np.sqrt(0.1)      # symmetric-smile :: Hyperbolla b=sqrt(0.1)
+        X[:,2] = newx
+        X[:,3] = np.arctan(newx)           # atan = np.arctan(m)
+        # X[:,4] = np.sin(newx)              # m-shape
+        
+        newy = np.matmul(X,beta)        
+
     return newy
 
 
 def _scale(x: np.ndarray, f: np.ndarray) -> np.ndarray:
+    fmin = np.min(f)
+    if fmin<0:
+        f = f - fmin
+        # This is a way to prevent negative probabilities without creating "breaks" in the density
     cumulative = np.trapz(f,x)
     f = f/cumulative
     return f
@@ -224,3 +371,33 @@ def getrnd(K: np.ndarray, V: np.ndarray, S: float, rf: float, t: float, method: 
 
     return outputx, outputy, _scale(outputx, outputf)
     pause=1
+    
+    
+def getmoments(x: np.ndarray, f: np.ndarray)->tuple:
+    # Matlab equivalent
+    # expected_value = trapz(x, x .* y);
+    # variance = trapz(x, ((x - expected_value).^2) .* y);
+    # third_moment = trapz(x, ((x - expected_value).^3) .* y);
+    # skewness = third_moment / variance^(3/2);   
+    # fourth_moment = trapz(x, ((x - expected_value).^4) .* y);
+    # excess_kurtosis = fourth_moment / variance^2 - 3;
+    
+    func = lambda x_val: x_val * np.interp(x_val, x, f)
+    expected_value, error = quad(func, np.min(x), np.max(x))
+    
+    func = lambda x_val: (x_val - expected_value)**2 * np.interp(x_val, x, f)
+    variance, error = quad(func, np.min(x), np.max(x))
+    
+    func = lambda x_val: (x_val - expected_value)**3 * np.interp(x_val, x, f)
+    thirdmoment, error = quad(func, np.min(x), np.max(x))
+    skewness = thirdmoment/variance**(3/2)
+
+    func = lambda x_val: (x_val - expected_value)**4 * np.interp(x_val, x, f)
+    fourthmoment, error = quad(func, np.min(x), np.max(x))
+    excesskurtosis = fourthmoment/variance**(2) - 3
+
+    return expected_value, variance, skewness, excesskurtosis
+    # pass
+    
+    
+    
