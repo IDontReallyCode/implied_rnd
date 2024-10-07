@@ -14,13 +14,14 @@ x1, y1, f1 = rnd.getrnd(K, V, S=10, rf=0.05, t=0.25, method=rnd.METHOD_STDR_EXTR
 # x1, y1, f1 = rnd.getrnd(K, V, S=10, rf=0.05, t=0.25, method=rnd.METHOD_STDR_EXTRADEN, interp=rnd.INTERP_POLYM3, extrap=rnd.EXTRAP_GBETA2, densityrange=rnd.DENSITY_RANGE_EXTENDD)
 x2, y2, f2 = rnd.getrnd(K, V, S=10, rf=0.05, t=0.25, method=rnd.METHOD_TLSM_EXTRAPIV, interp=rnd.INTERP_FACTR1, extrap=rnd.EXTRAP_ASYMPT, densityrange=rnd.DENSITY_RANGE_EXTENDD)
 
+# the first plot 
 plt.plot(x0,f0)#;plt.show()
 plt.plot(x1,f1)#;plt.show()
 plt.plot(x2,f2)#;plt.show()
 plt.show()
 
-rnd.getrnd(K, V, S=10, rf=0.0, t=0.25, densityrange=rnd.DENSITY_RANGE_DEFAULT)
-rnd.getrnd(K, V, S=10, rf=0.0, t=0.25, densityrange=[10, 50])
+# rnd.getrnd(K, V, S=10, rf=0.0, t=0.25, densityrange=rnd.DENSITY_RANGE_DEFAULT)
+# rnd.getrnd(K, V, S=10, rf=0.0, t=0.25, densityrange=[10, 50])
 
 
 # Can get a random sample, and test the the statistical difference between kurtotis

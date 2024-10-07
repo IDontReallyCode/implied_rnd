@@ -14,12 +14,24 @@ from py_vollib_vectorized import vectorized_black_scholes as bls
 import implied_rnd.optimizing as opt
 from scipy.stats import genpareto
 from scipy.integrate import quad
+from scipy.optimize import curve_fit
 
 import matplotlib.pyplot as plt
 
 METHOD_STDR_EXTRAPIV = 0    # Standard support with extrapolation of IV
 METHOD_STDR_EXTRADEN = 1    # Standard support with extrapolation of density
 METHOD_TLSM_EXTRAPIV = 2    # Time-Scaled-Log-Moneyness support with extrapolation of IV using asymptotes
+
+"""
+    METHOD_STDR_EXTRAPIV
+    We interpolate with some polynomial order, and extrapolate with a constant.
+    
+    METHOD_STDR_EXTRADEN
+    We interpolate with some method, and extrapolate the density, for example, with a Generalized Pareto.
+    
+    METHOD_TLSM_EXTRAPIV
+    We interpolate with some method, and extrapolate the IV with the asymptotes of the model.
+"""
 
 INTERP_LINEAR = 0
 INTERP_POLYM1 = 11
@@ -41,6 +53,8 @@ INTERP_FACTR6 = 26      # Just one hyperbolla + x for asymetry
 INTERP_FACTR7 = 27      # Just one hyperbolla + arctan(x) for an asymetric/distortion feature
 INTERP_FACTR8 = 28      # Just one hyperbolla + x for asymetry + arctan(x) for an asymetric/distortion feature
 
+INTERP_NONLI1 = 31      # non-linear hyperbolla + x for asymetry + arctan(x) for an asymetric/distortion feature
+
 EXTRAP_LINEAR = 10       # works only for METHOD_STDR_EXTRAPIV
 EXTRAP_GPARTO = 20       # works only for METHOD_STDR_EXTRADEN
 EXTRAP_GBETA2 = 21       # works only for METHOD_STDR_EXTRADEN
@@ -48,6 +62,12 @@ EXTRAP_ASYMPT = 30       # works only for METHOD_TLSM_EXTRAPIV
 
 DENSITY_RANGE_DEFAULT = 0
 DENSITY_RANGE_EXTENDD = 1
+
+
+# Define the non-linear function
+def non_linear_func31(x, a0, a1, a2, a3, b0, b1, b2):
+    return a0 + a1 * np.sqrt(b0 + b1 * (x ** 2)) + a2 * x + a3 * np.arctan(b2 * x)
+
 
 
 def _interpolate(interp: int, x: np.ndarray, y: np.ndarray, newx: np.ndarray) -> np.ndarray:
@@ -217,7 +237,18 @@ def _interpolate(interp: int, x: np.ndarray, y: np.ndarray, newx: np.ndarray) ->
         
         newy = np.matmul(X,beta)        
 
-    return newy
+    elif interp==31:
+        # 
+        # Initial guess for the parameters
+        initial_guess = [1, 1, 1, 1, 1, 1, 1]
+        
+        # Fit the curve
+        params = curve_fit(non_linear_func31, x, y, p0=initial_guess)
+        
+        # Predict new values
+        newy = non_linear_func31(newx, *params)
+        
+        return newy
 
 
 def _scale(x: np.ndarray, f: np.ndarray) -> np.ndarray:
