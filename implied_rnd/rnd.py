@@ -49,6 +49,7 @@ INTERP_FACTR2 = 22      # Two different hyperbollas
 INTERP_FACTR3 = 23      # Two hyperbollas + x for an asymetric feature
 INTERP_FACTR4 = 24      # Two hyperbollas + arctan(x) for an asymetric/distortion feature
 INTERP_FACTR5 = 25      # Two hyperbollas + x for asymetry + arctan(x) for an asymetric/distortion feature
+INTERP_FACTR51 = 251    # four hyperbollas + x for asymetry + arctan(x) for an asymetric/distortion feature
 INTERP_FACTR6 = 26      # Just one hyperbolla + x for asymetry 
 INTERP_FACTR7 = 27      # Just one hyperbolla + arctan(x) for an asymetric/distortion feature
 INTERP_FACTR8 = 28      # Just one hyperbolla + x for asymetry + arctan(x) for an asymetric/distortion feature
@@ -65,8 +66,9 @@ DENSITY_RANGE_EXTENDD = 1
 
 
 # Define the non-linear function
-def non_linear_func31(x, a0, a1, a2, a3, b0, b1, b2):
-    return a0 + a1 * np.sqrt(b0 + b1 * (x ** 2)) + a2 * x + a3 * np.arctan(b2 * x)
+def non_linear_func31(x, a0, a1, a2, b0):
+    # return a0 + a1 * np.sqrt(b0 + b1 * ((x+b3) ** 2)) + a2 * x + a3 * np.arctan(b2 * (x+b4))
+    return a0 + a1 * np.sqrt(1 + 1 * (x ** 2)) + a2 * x
 
 
 
@@ -119,7 +121,7 @@ def _interpolate(interp: int, x: np.ndarray, y: np.ndarray, newx: np.ndarray) ->
         # X[:,4] = np.sin(newx)              # m-shape
         
         newy = np.matmul(X,beta)
-    elif interp==23:
+    elif interp==INTERP_FACTR3:
         # Fit a factor model with the SET#3
         X = np.ones((len(x),4))
         X[:,1] = np.sqrt(1+x**2)-1      # symmetric-smile :: Hyperbolla b=1
@@ -138,7 +140,7 @@ def _interpolate(interp: int, x: np.ndarray, y: np.ndarray, newx: np.ndarray) ->
         # X[:,4] = np.sin(newx)              # m-shape
         
         newy = np.matmul(X,beta)        
-    elif interp==24:
+    elif interp==INTERP_FACTR4:
         # Fit a factor model with the SET#3
         X = np.ones((len(x),4))
         X[:,1] = np.sqrt(1+x**2)-1      # symmetric-smile :: Hyperbolla b=1
@@ -157,7 +159,7 @@ def _interpolate(interp: int, x: np.ndarray, y: np.ndarray, newx: np.ndarray) ->
         # X[:,4] = np.sin(newx)              # m-shape
         
         newy = np.matmul(X,beta)        
-    elif interp==25:
+    elif interp==INTERP_FACTR5:
         # Fit a factor model with the SET#3
         X = np.ones((len(x),5))
         X[:,1] = np.sqrt(1+x**2)-1      # symmetric-smile :: Hyperbolla b=1
@@ -173,6 +175,30 @@ def _interpolate(interp: int, x: np.ndarray, y: np.ndarray, newx: np.ndarray) ->
         X[:,2] = np.sqrt(0.1+newx**2)-np.sqrt(0.1)      # symmetric-smile :: Hyperbolla b=sqrt(0.1)
         X[:,3] = newx
         X[:,4] = np.arctan(newx)           # atan = np.arctan(m)
+        # X[:,4] = np.sin(newx)              # m-shape
+        
+        newy = np.matmul(X,beta)        
+
+    elif interp==INTERP_FACTR51:
+        # Fit a factor model with the SET#3
+        X = np.ones((len(x),7))
+        X[:,1] = np.sqrt(1+x**2)-1      # symmetric-smile :: Hyperbolla b=1
+        X[:,2] = np.sqrt(1+2*x**2)-1      # symmetric-smile :: Hyperbolla b=1
+        X[:,3] = np.sqrt(1+0.5*x**2)-1      # symmetric-smile :: Hyperbolla b=1
+        X[:,4] = np.sqrt(1+10*x**2)-1      # symmetric-smile :: Hyperbolla b=1
+        X[:,5] = x
+        X[:,6] = np.arctan(x)           # atan = np.arctan(m)
+        # X[:,4] = np.sin(x)              # m-shape
+        # plt.plot(x, X[:,1]); plt.show()
+        beta = np.linalg.lstsq(X,y,rcond=-1)[0]
+        
+        X = np.ones((len(newx),7))
+        X[:,1] = np.sqrt(1+newx**2)-1      # symmetric-smile :: Hyperbolla b=1
+        X[:,2] = np.sqrt(1+2*newx**2)-1      # symmetric-smile :: Hyperbolla b=1
+        X[:,3] = np.sqrt(1+0.5*newx**2)-1      # symmetric-smile :: Hyperbolla b=1
+        X[:,4] = np.sqrt(1+10*newx**2)-1      # symmetric-smile :: Hyperbolla b=1
+        X[:,5] = newx
+        X[:,6] = np.arctan(newx)           # atan = np.arctan(m)
         # X[:,4] = np.sin(newx)              # m-shape
         
         newy = np.matmul(X,beta)        
@@ -240,15 +266,16 @@ def _interpolate(interp: int, x: np.ndarray, y: np.ndarray, newx: np.ndarray) ->
     elif interp==31:
         # 
         # Initial guess for the parameters
-        initial_guess = [1, 1, 1, 1, 1, 1, 1]
-        
+
+        initial_guess = [np.mean(y), 1, 0, 1]
+        # return a0 + a1 * np.sqrt(1 + b0 * (x ** 2)) + a2 * x
         # Fit the curve
-        params = curve_fit(non_linear_func31, x, y, p0=initial_guess)
+        params, pcov = curve_fit(non_linear_func31, x, y, p0=initial_guess, maxfev=50000)
         
         # Predict new values
         newy = non_linear_func31(newx, *params)
         
-        return newy
+    return newy
 
 
 def _scale(x: np.ndarray, f: np.ndarray) -> np.ndarray:
@@ -259,6 +286,10 @@ def _scale(x: np.ndarray, f: np.ndarray) -> np.ndarray:
     cumulative = np.trapz(f,x)
     f = f/cumulative
     return f
+
+
+def getfit(x: np.ndarray, y: np.ndarray, interp: int=INTERP_POLYM3) -> np.ndarray:
+    return _interpolate(interp, x, y, x)
 
 
 def getrnd(K: np.ndarray, V: np.ndarray, S: float, rf: float, t: float, method: int=METHOD_STDR_EXTRAPIV, interp: int=INTERP_POLYM3, extrap: int=EXTRAP_LINEAR, 

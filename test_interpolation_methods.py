@@ -23,7 +23,7 @@ plt.show()
 # rnd.getrnd(K, V, S=10, rf=0.0, t=0.25, densityrange=rnd.DENSITY_RANGE_DEFAULT)
 # rnd.getrnd(K, V, S=10, rf=0.0, t=0.25, densityrange=[10, 50])
 
-
+pause = 1
 # Can get a random sample, and test the the statistical difference between kurtotis
 # VRP mostly tail risk in new literature.
 

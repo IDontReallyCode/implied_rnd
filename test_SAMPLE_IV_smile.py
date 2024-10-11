@@ -19,13 +19,13 @@ Thus, for now, the program will use the closest maturity to 1-months horizon (30
 
 def main():
     # Set the seed for random number generation
-    random.seed(84)
+    random.seed(4826)
 
     directory = "E:/CBOE/ipc_per_tick"
     N = 5  # Number of dates to select
 
-    # selected_file = 'AMZN.ipc'
-    selected_file = 'ROKU.ipc'
+    selected_file = 'SPX.ipc'
+    # selected_file = 'ROKU.ipc'
 
     file_path = os.path.join(directory, selected_file)
     df = pl.read_ipc(file_path)
@@ -40,20 +40,21 @@ def main():
 
     for one_date in random_dates:
 
-        # Filter the DataFrame to only include rows where the quote_datetime column is equal to the random_date
+        # Filter the DataFrame to only include rows where the quote_datetime column is equal to the random_date selected        ## CHECKED
         this_pf = df.filter(pl.col('quote_date') == one_date)
         
-        # filter only the rows for which 'quote_datetime' is 13:30
-        this_pf = this_pf.filter(pl.col('quote_datetime').str.contains('13:30'))        
+        # filter only the rows for which 'quote_datetime' is 11:30                                                              ## CHECKED
+        this_pf = this_pf.filter(pl.col('quote_datetime').str.contains('11:30'))        
         
-        # now keep only the rows for which 'dte' is closest to 30 days
+        # now keep only the rows for which 'dte' is closest to 30 days                                                          ## CHECKED
         # Calculate the absolute difference between 'dte' and 30
         this_pf = this_pf.with_columns((pl.col('dte') - 30).abs().alias('dte_diff'))
         # Keep only the rows where 'dte' is closest to 30
         this_pf = this_pf.filter(pl.col('dte_diff') == this_pf['dte_diff'].min())
 
-        # Remove the 'dte_diff' column
-        this_pf = this_pf.drop('dte_diff')
+        # Remove the 'dte_diff' (and other extra columns)                                                                       ## CHECKED      
+        # this_pf = this_pf.drop(['dte_diff', 'root', 'open', 'high', 'low', 'close', 'bid_size', 'ask_size', 'delta', 'gamma', 'theta', 'vega', 'rho'], ignore_missing=True)
+        this_pf = this_pf.drop(['dte_diff', 'root', 'open', 'high', 'low', 'close', 'bid_size', 'ask_size', 'delta', 'gamma', 'theta', 'vega', 'rho', 'eod', 'in1yearrange', 'quote_date'])
             
         """
         Options with the following characteristics are removed: 
@@ -62,14 +63,22 @@ def main():
         (iii) a zero bid price,
         and (iv) options with a bid–ask spread larger than 175% of the option's midprice
         """
-        this_pf = this_pf.filter((pl.col('dte') > 6) & (pl.col('bid') > 0) 
-                                 & ((pl.col('ask') - pl.col('bid')) / ((pl.col('ask') + pl.col('bid')) / 2) < 1.75) 
+        this_pf = this_pf.filter((pl.col('dte') > 6) & (pl.col('bid') > 0.00) 
                                  & ((pl.col('ask') + pl.col('bid')) / 2 > 0.375)
-                                 & (pl.col('otm') == False)
-                                 & (pl.col('likely_stale') == False))
+                                 & (pl.col('otm') == True)
+                                 & (pl.col('likely_stale') == False)
+                                 & (pl.col('implied_volatility') > 0)
+                                 )                                                  ## CHECKED                                      
+        # & (pl.col('trade_volume') > 0)
+        # & (pl.col('otm') == True)
+        # & ((pl.col('ask') - pl.col('bid')) / ((pl.col('ask') + pl.col('bid')) / 2) < 1.75) 
         
         # not do a scatter of the 'iv' vs 'tslm' columns
-        plt.scatter(this_pf['tslm'], this_pf['bid_iv'])
+        # plt.scatter(this_pf['tslm'], this_pf['bid_iv'])
+        # plt.scatter(this_pf['strike'], this_pf['implied_volatility'])
+        plt.scatter(this_pf['tslm'], this_pf['implied_volatility'])
+
+        
         plt.show()
 
         pass
