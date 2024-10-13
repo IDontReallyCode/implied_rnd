@@ -50,6 +50,7 @@ INTERP_FACTR3 = 23      # Two hyperbollas + x for an asymetric feature
 INTERP_FACTR4 = 24      # Two hyperbollas + arctan(x) for an asymetric/distortion feature
 INTERP_FACTR5 = 25      # Two hyperbollas + x for asymetry + arctan(x) for an asymetric/distortion feature
 INTERP_FACTR51 = 251    # four hyperbollas + x for asymetry + arctan(x) for an asymetric/distortion feature
+INTERP_FACTR52 = 252    # four hyperbollas + x for asymetry + three arctan(x) for an asymetric/distortion feature
 INTERP_FACTR6 = 26      # Just one hyperbolla + x for asymetry 
 INTERP_FACTR7 = 27      # Just one hyperbolla + arctan(x) for an asymetric/distortion feature
 INTERP_FACTR8 = 28      # Just one hyperbolla + x for asymetry + arctan(x) for an asymetric/distortion feature
@@ -199,6 +200,40 @@ def _interpolate(interp: int, x: np.ndarray, y: np.ndarray, newx: np.ndarray) ->
         X[:,4] = np.sqrt(1+10*newx**2)-1      # symmetric-smile :: Hyperbolla b=1
         X[:,5] = newx
         X[:,6] = np.arctan(newx)           # atan = np.arctan(m)
+        # X[:,4] = np.sin(newx)              # m-shape
+        
+        newy = np.matmul(X,beta)        
+
+    elif interp==INTERP_FACTR52:
+        # Fit a factor model with the SET#3
+        X = np.ones((len(x),12))
+        X[:, 1] = np.sqrt(1+x**2)-1      # symmetric-smile :: Hyperbolla b=1
+        X[:, 2] = np.sqrt(1+2*x**2)-1      # symmetric-smile :: Hyperbolla b=1
+        X[:, 3] = np.sqrt(1+0.5*x**2)-1      # symmetric-smile :: Hyperbolla b=1
+        X[:, 4] = np.sqrt(1+10*x**2)-1      # symmetric-smile :: Hyperbolla b=1
+        X[:, 5] = np.sqrt(1+0.1*x**2)-1      # symmetric-smile :: Hyperbolla b=1
+        X[:, 6] = x
+        X[:, 7] = np.arctan(x)           # atan = np.arctan(m)
+        X[:, 8] = np.arctan(2*x)           # atan = np.arctan(m)
+        X[:, 9] = np.arctan(0.5*x)           # atan = np.arctan(m)
+        X[:,10] = np.arctan(10*x)           # atan = np.arctan(m)
+        X[:,11] = np.arctan(0.1*x)           # atan = np.arctan(m)
+        # X[:,4] = np.sin(x)              # m-shape
+        # plt.plot(x, X[:,1]); plt.show()
+        beta = np.linalg.lstsq(X,y,rcond=-1)[0]
+        
+        X = np.ones((len(newx),12))
+        X[:, 1] = np.sqrt(1+newx**2)-1      # symmetric-smile :: Hyperbolla b=1
+        X[:, 2] = np.sqrt(1+2*newx**2)-1      # symmetric-smile :: Hyperbolla b=1
+        X[:, 3] = np.sqrt(1+0.5*newx**2)-1      # symmetric-smile :: Hyperbolla b=1
+        X[:, 4] = np.sqrt(1+10*newx**2)-1      # symmetric-smile :: Hyperbolla b=1
+        X[:, 5] = np.sqrt(1+0.1*newx**2)-1      # symmetric-smile :: Hyperbolla b=1
+        X[:, 6] = newx
+        X[:, 7] = np.arctan(newx)           # atan = np.arctan(m)
+        X[:, 8] = np.arctan(2*newx)           # atan = np.arctan(m)
+        X[:, 9] = np.arctan(0.5*newx)           # atan = np.arctan(m)
+        X[:,10] = np.arctan(10*newx)           # atan = np.arctan(m)
+        X[:,11] = np.arctan(0.1*newx)           # atan = np.arctan(m)
         # X[:,4] = np.sin(newx)              # m-shape
         
         newy = np.matmul(X,beta)        

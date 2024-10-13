@@ -21,12 +21,15 @@ Thus, for now, the program will use the closest maturity to 1-months horizon (30
 
 def main():
     # Set the seed for random number generation
-    random.seed(8642)
+    random.seed(357951)
 
     directory = "E:/CBOE/ipc_per_tick"
     N = 10  # Number of dates to select
 
-    selected_file = 'SPX.ipc'
+    # selected_file = 'SPX.ipc'
+    ticker = 'AMZN'
+    selected_file = f'{ticker}.ipc'
+    # selected_file = 'AMZN.ipc'
     # selected_file = 'ROKU.ipc'
 
     file_path = os.path.join(directory, selected_file)
@@ -84,10 +87,11 @@ def main():
         plt.scatter(this_pf['tslm'], this_pf['implied_volatility'], s=10)
 
         # V_hat_poly3 = rnd.getfit(this_pf['tslm'].to_numpy(), this_pf['implied_volatility'].to_numpy(), rnd.INTERP_POLYM3)
-        V_hat_nlin1 = rnd.getfit(this_pf['tslm'].to_numpy(), this_pf['implied_volatility'].to_numpy(), rnd.INTERP_FACTR51)
+        V_hat_nlin1 = rnd.getfit(this_pf['tslm'].to_numpy(), this_pf['implied_volatility'].to_numpy(), rnd.INTERP_FACTR52)
         # plt.scatter(this_pf['tslm'], V_hat_poly3, s=10)
         plt.scatter(this_pf['tslm'], V_hat_nlin1, s=10)
-        plt.legend(['data', 'INTERP_FACTR51'])
+        plt.legend(['data', 'INTERP_FACTR52'])
+        plt.title(f'{ticker} - {one_date}')
         plt.show()
 
         pass
