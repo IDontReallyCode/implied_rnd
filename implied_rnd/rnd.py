@@ -47,10 +47,12 @@ INTERP_POLYM9 = 19
 INTERP_FACTR1 = 21      # Just one hyperbolla
 INTERP_FACTR2 = 22      # Two different hyperbollas
 INTERP_FACTR3 = 23      # Two hyperbollas + x for an asymetric feature
+INTERP_FACTR31 = 231    # Two hyperbollas (centered at min value) + x for an asymetric feature
 INTERP_FACTR4 = 24      # Two hyperbollas + arctan(x) for an asymetric/distortion feature
 INTERP_FACTR5 = 25      # Two hyperbollas + x for asymetry + arctan(x) for an asymetric/distortion feature
 INTERP_FACTR51 = 251    # four hyperbollas + x for asymetry + arctan(x) for an asymetric/distortion feature
 INTERP_FACTR52 = 252    # four hyperbollas + x for asymetry + three arctan(x) for an asymetric/distortion feature
+
 INTERP_FACTR6 = 26      # Just one hyperbolla + x for asymetry 
 INTERP_FACTR7 = 27      # Just one hyperbolla + arctan(x) for an asymetric/distortion feature
 INTERP_FACTR8 = 28      # Just one hyperbolla + x for asymetry + arctan(x) for an asymetric/distortion feature
@@ -136,6 +138,30 @@ def _interpolate(interp: int, x: np.ndarray, y: np.ndarray, newx: np.ndarray) ->
         X = np.ones((len(newx),4))
         X[:,1] = np.sqrt(1+newx**2)-1      # symmetric-smile :: Hyperbolla b=1
         X[:,2] = np.sqrt(0.1+newx**2)-np.sqrt(0.1)      # symmetric-smile :: Hyperbolla b=sqrt(0.1)
+        X[:,3] = newx
+        # X[:,3] = np.arctan(newx)           # atan = np.arctan(m)
+        # X[:,4] = np.sin(newx)              # m-shape
+        
+        newy = np.matmul(X,beta)        
+    elif interp==INTERP_FACTR31:
+        # Fit a factor model with the SET#3
+        X = np.ones((len(x),4))
+        # find where y is at the minimum
+        minindex = np.argmin(y)
+        # find the value of x at the minimum
+        minx = x[minindex]
+
+        X[:,1] = np.sqrt(1+(x-minx)**2)-1      # symmetric-smile :: Hyperbolla b=1
+        X[:,2] = np.sqrt(0.1+(x-minx)**2)-np.sqrt(0.1)      # symmetric-smile :: Hyperbolla b=sqrt(0.1)
+        X[:,3] = x
+        # X[:,3] = np.arctan(x)           # atan = np.arctan(m)
+        # X[:,4] = np.sin(x)              # m-shape
+        # plt.plot(x, X[:,1]); plt.show()
+        beta = np.linalg.lstsq(X,y,rcond=-1)[0]
+        
+        X = np.ones((len(newx),4))
+        X[:,1] = np.sqrt(1+(newx-minx)**2)-1      # symmetric-smile :: Hyperbolla b=1
+        X[:,2] = np.sqrt(0.1+(newx-minx)**2)-np.sqrt(0.1)      # symmetric-smile :: Hyperbolla b=sqrt(0.1)
         X[:,3] = newx
         # X[:,3] = np.arctan(newx)           # atan = np.arctan(m)
         # X[:,4] = np.sin(newx)              # m-shape
@@ -327,6 +353,10 @@ def getfit(x: np.ndarray, y: np.ndarray, interp: int=INTERP_POLYM3) -> np.ndarra
     return _interpolate(interp, x, y, x)
 
 
+def getfitextrapolated(x: np.ndarray, y: np.ndarray, newx: np.ndarray, interp: int=INTERP_POLYM3) -> np.ndarray:
+    return _interpolate(interp, x, y, newx)
+
+
 def getrnd(K: np.ndarray, V: np.ndarray, S: float, rf: float, t: float, method: int=METHOD_STDR_EXTRAPIV, interp: int=INTERP_POLYM3, extrap: int=EXTRAP_LINEAR, 
            densityrange: Union[int, List[int]]=DENSITY_RANGE_DEFAULT, nbpoints:int = 10000) -> tuple:
     """
@@ -342,6 +372,8 @@ def getrnd(K: np.ndarray, V: np.ndarray, S: float, rf: float, t: float, method: 
 
     Returns:
         np.ndarray: Two NumPy arrays of size (nbpoints,) one for underlying values, and one for density.
+
+    Suppose extrap = EXTRAP_GPARTO, method = METHOD_STDR_EXTRADEN, and densityrange = DENSITY_RANGE_EXTENDD
     """
     N = len(K)  # Determine the size N based on the length of K
     K = np.array(K)  # Convert K to a NumPy array
@@ -449,6 +481,7 @@ def getrnd(K: np.ndarray, V: np.ndarray, S: float, rf: float, t: float, method: 
         
         pass
     
+
     elif method==METHOD_TLSM_EXTRAPIV:
         # convert to TSLM frame
         m = np.multiply(1/np.sqrt(t), np.log(S*np.exp(rf*t)/K))

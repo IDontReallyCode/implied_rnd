@@ -18,6 +18,7 @@ x2, y2, f2 = rnd.getrnd(K, V, S=10, rf=0.05, t=0.25, method=rnd.METHOD_TLSM_EXTR
 plt.plot(x0,f0)#;plt.show()
 plt.plot(x1,f1)#;plt.show()
 plt.plot(x2,f2)#;plt.show()
+plt.legend(['M3', 'M3 G pareto', 'f1 asympt'])
 plt.show()
 
 # rnd.getrnd(K, V, S=10, rf=0.0, t=0.25, densityrange=rnd.DENSITY_RANGE_DEFAULT)
