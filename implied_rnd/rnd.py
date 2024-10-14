@@ -357,18 +357,27 @@ def getfitextrapolated(x: np.ndarray, y: np.ndarray, newx: np.ndarray, interp: i
     return _interpolate(interp, x, y, newx)
 
 
-def getrnd(K: np.ndarray, V: np.ndarray, S: float, rf: float, t: float, method: int=METHOD_STDR_EXTRAPIV, interp: int=INTERP_POLYM3, extrap: int=EXTRAP_LINEAR, 
+def getrnd(K: np.ndarray, V: np.ndarray, S: float, rf: float, t: float, interp: int=INTERP_POLYM3, method: int=METHOD_STDR_EXTRAPIV, extrap: int=EXTRAP_LINEAR, 
            densityrange: Union[int, List[int]]=DENSITY_RANGE_DEFAULT, nbpoints:int = 10000) -> tuple:
     """
+    For now, the function only deals with one maturity.
     Parameters:
-        K (np.ndarray): The strikes.
-        V (np.ndarray): The matching IVs for OTM+ATM calls and puts.
-        F (float): The forward price of the underlying asset if the Time-Scaled-Log-Moneyness frame is used
-        support (int): Use the standard frame, or the Time-Scaled-Log-Moneyness frame
-        interp (int): Method used to interpolate values
-        extrap (int): Method used to extrapolate values
-        densityrange (int, [lower, upper]): range for the values for which we want a density
-        nbpoints (int): how many points should be used when approximating the density
+        K (np.ndarray): The strikes, provided in a vector
+        V (np.ndarray): The matching IVs for OTM+ATM calls and puts
+        S (float): the spot price of the underlying
+        rf (float): the risk-free rate in continuous time, decimal
+        t (float): the time to maturity in years
+        interp (int): The interpolation method to use. Default is INTERP_POLYM3. Possible values are INTERP_LINEAR, INTERP_POLYM#, INTERP_FACTR#, INTERP_NONLI1
+        method (int): The method to use to extrapolate the RND.
+            METHOD_STDR_EXTRAPIV: Extrapolate the IV as constants from the extremities of the support. Then smooth the density at the junction.
+            METHOD_STDR_EXTRADEN: Extrapolate the density using a Generalized Pareto (TODO: extend to another distribution).
+            METHOD_TLSM_EXTRAPIV: Extrapolate the IV in the time-scaled log-moneyness space using the asymptotes of the model.
+        
+        Once we have the IVs, we can get the put prices, and then the convexity of the put prices to get the rnd.
+        rnd = exp(rf*t) * d^2P/dK^2
+
+        at the output, the RND is scale to have a total probability of 1.
+
 
     Returns:
         np.ndarray: Two NumPy arrays of size (nbpoints,) one for underlying values, and one for density.
