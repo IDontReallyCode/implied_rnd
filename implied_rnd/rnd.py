@@ -15,6 +15,7 @@ import implied_rnd.optimizing as opt
 from scipy.stats import genpareto
 from scipy.integrate import quad
 from scipy.optimize import curve_fit
+from scipy.optimize import least_squares
 
 import matplotlib.pyplot as plt
 
@@ -59,6 +60,12 @@ INTERP_FACTR8 = 28      # Just one hyperbolla + x for asymetry + arctan(x) for a
 
 INTERP_NONLI1 = 31      # non-linear hyperbolla + x for asymetry + arctan(x) for an asymetric/distortion feature
 
+INTERP_SVI000 = 40      # Gatheral SVI model
+INTERP_SVI001 = 41      # Gatheral SVI model + arctan(x) for an asymetric/distortion feature
+INTERP_SVI002 = 42      # Gatheral SVI model + arctan(b2*x) for an asymetric/distortion feature
+
+
+
 EXTRAP_LINEAR = 10       # works only for METHOD_STDR_EXTRAPIV
 EXTRAP_GPARTO = 20       # works only for METHOD_STDR_EXTRADEN
 EXTRAP_GBETA2 = 21       # works only for METHOD_STDR_EXTRADEN
@@ -68,11 +75,41 @@ DENSITY_RANGE_DEFAULT = 0
 DENSITY_RANGE_EXTENDD = 1
 
 
+def residuals(params, x, y, model_func):
+    """
+    General residuals function for least_squares.
+
+    Parameters:
+    - params: List of parameters to optimize.
+    - x: Independent variable data.
+    - y: Dependent variable data (target).
+    - model_func: The non-linear model function to fit.
+
+    Returns:
+    - Residuals (difference between predicted and actual values).
+    """
+    return y - model_func(x, *params)
+
+
 # Define the non-linear function
 def non_linear_func31(x, a0, a1, a2, b0):
     # return a0 + a1 * np.sqrt(b0 + b1 * ((x+b3) ** 2)) + a2 * x + a3 * np.arctan(b2 * (x+b4))
     return a0 + a1 * np.sqrt(1 + 1 * (x ** 2)) + a2 * x
 
+
+def non_linear_SVI000(x, a0, a1, a2, b0, b1):
+    # return a0 + a1 * np.sqrt(b0 + b1 * ((x+b3) ** 2)) + a2 * x + a3 * np.arctan(b2 * (x+b4))
+    return (a0 + a1 * (x-b0) + a2 * np.sqrt(b1 + (x-b0)**2) - a2 * np.sqrt(b1))
+
+
+def non_linear_SVI001(x, a0, a1, a2, a3, b0, b1):
+    # return a0 + a1 * np.sqrt(b0 + b1 * ((x+b3) ** 2)) + a2 * x + a3 * np.arctan(b2 * (x+b4))
+    return (a0 + a1 * (x-b0) + a2 * np.sqrt(b1 + (x-b0)**2) - a2 * np.sqrt(b1) + a3 * np.arctan(x-b0))
+
+
+def non_linear_SVI002(x, a0, a1, a2, a3, b0, b1, b2):
+    # return a0 + a1 * np.sqrt(b0 + b1 * ((x+b3) ** 2)) + a2 * x + a3 * np.arctan(b2 * (x+b4))
+    return (a0 + a1 * (x-b0) + a2 * np.sqrt(b1 + (x-b0)**2) - a2 * np.sqrt(b1) + a3 * np.arctan(b2*(x-b0)))
 
 
 def _interpolate(interp: int, x: np.ndarray, y: np.ndarray, newx: np.ndarray) -> np.ndarray:
@@ -324,7 +361,7 @@ def _interpolate(interp: int, x: np.ndarray, y: np.ndarray, newx: np.ndarray) ->
         
         newy = np.matmul(X,beta)        
 
-    elif interp==31:
+    elif interp==INTERP_NONLI1:
         # 
         # Initial guess for the parameters
 
@@ -335,6 +372,72 @@ def _interpolate(interp: int, x: np.ndarray, y: np.ndarray, newx: np.ndarray) ->
         
         # Predict new values
         newy = non_linear_func31(newx, *params)
+        
+    elif interp==INTERP_SVI000:
+        # 
+        # Initial guess for the parameters
+        # non_linear_SVI000(x, a0, a1, a2, b0, b1):
+        initial_guess = [np.mean(y)**2, 1, 1, 0, 1]
+        # return np.sqrt(a0 + a1 * (x-b0) + a2 * np.sqrt(b1 + (x-b0)**2) - a2 * np.sqrt(b1))
+
+        # Define bounds: (lower_bounds, upper_bounds)
+        lower_bounds = [0     , -np.inf, -np.inf, -0.1, 0]  # a0 > 0, -0.1 < b0
+        upper_bounds = [np.inf,  np.inf,  np.inf,  0.1,  np.inf]  # b0 < 0.1, rest unbounded
+
+        # debug
+
+        # y = non_linear_SVI000(x, .20, 1, 1, 0, 1)
+        # e = residuals([.20, 1, 1, 0, 1], x, y, non_linear_SVI000)
+
+        # Fit the curve
+        params = least_squares(residuals, initial_guess, args=(x, y**2, non_linear_SVI000), bounds=(lower_bounds, upper_bounds), method='trf').x
+        
+        # Predict new values
+        newy = np.sqrt(non_linear_SVI000(newx, *params))
+
+    elif interp==INTERP_SVI001:
+        # 
+        # Initial guess for the parameters
+        # non_linear_SVI000(x, a0, a1, a2, a3, b0, b1):
+        initial_guess = [np.mean(y)**2, 1, 1, 0, 0, 1]
+        # return np.sqrt(a0 + a1 * (x-b0) + a2 * np.sqrt(b1 + (x-b0)**2) - a2 * np.sqrt(b1))
+
+        # Define bounds: (lower_bounds, upper_bounds)
+        lower_bounds = [0     , -np.inf, -np.inf, -np.inf, -0.1, 0]  # a0 > 0, -0.1 < b0
+        upper_bounds = [np.inf,  np.inf,  np.inf,  np.inf,  0.1,  np.inf]  # b0 < 0.1, rest unbounded
+
+        # debug
+
+        # y = non_linear_SVI000(x, .20, 1, 1, 0, 1)
+        # e = residuals([.20, 1, 1, 0, 1], x, y, non_linear_SVI000)
+
+        # Fit the curve
+        params = least_squares(residuals, initial_guess, args=(x, y**2, non_linear_SVI001), bounds=(lower_bounds, upper_bounds), method='trf').x
+        
+        # Predict new values
+        newy = np.sqrt(non_linear_SVI001(newx, *params))
+        
+    elif interp==INTERP_SVI002:
+        # 
+        # Initial guess for the parameters
+        # non_linear_SVI000(x, a0, a1, a2, a3, b0, b1):
+        initial_guess = [np.mean(y)**2, 1, 1, 0, 0, 1, 1]
+        # return np.sqrt(a0 + a1 * (x-b0) + a2 * np.sqrt(b1 + (x-b0)**2) - a2 * np.sqrt(b1))
+
+        # Define bounds: (lower_bounds, upper_bounds)
+        lower_bounds = [0     , -np.inf, -np.inf, -np.inf, -0.1, 0,       -np.inf]  # a0 > 0, -0.1 < b0
+        upper_bounds = [np.inf,  np.inf,  np.inf,  np.inf,  0.1,  np.inf,  np.inf]  # b0 < 0.1, rest unbounded
+
+        # debug
+
+        # y = non_linear_SVI000(x, .20, 1, 1, 0, 1)
+        # e = residuals([.20, 1, 1, 0, 1], x, y, non_linear_SVI000)
+
+        # Fit the curve
+        params = least_squares(residuals, initial_guess, args=(x, y**2, non_linear_SVI002), bounds=(lower_bounds, upper_bounds), method='trf').x
+        
+        # Predict new values
+        newy = np.sqrt(non_linear_SVI002(newx, *params))
         
     return newy
 
