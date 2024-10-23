@@ -27,7 +27,7 @@ def main():
     N = 10  # Number of dates to select
 
     # selected_file = 'SPX.ipc'
-    ticker = 'SPX'
+    ticker = 'AMZN'
     selected_file = f'{ticker}.ipc'
     # selected_file = 'AMZN.ipc'
     # selected_file = 'ROKU.ipc'
@@ -87,7 +87,7 @@ def main():
         t = float(this_pf['dte'].to_numpy()[0] / 365)
 
         x0, y0, f0 = rnd.getrnd(K, V, S=S, rf=rf, t=t, interp=rnd.INTERP_POLYM3 , densityrange=rnd.DENSITY_RANGE_DEFAULT, method=rnd.METHOD_STDR_EXTRADEN, extrap=rnd.EXTRAP_GPARTO)
-        x2, y2, f2 = rnd.getrnd(K, V, S=S, rf=rf, t=t, interp=rnd.INTERP_FACTR31, densityrange=rnd.DENSITY_RANGE_DEFAULT, method=rnd.METHOD_TLSM_EXTRAPIV, extrap=rnd.EXTRAP_ASYMPT)
+        x2, y2, f2 = rnd.getrnd(K, V, S=S, rf=rf, t=t, interp=rnd.INTERP_SVI000, densityrange=rnd.DENSITY_RANGE_DEFAULT, method=rnd.METHOD_TLSM_EXTRAPIV, extrap=rnd.EXTRAP_ASYMPT)
 
         plt.plot(x0, f0, label="M3 G pareto")
         plt.plot(x2, f2, label="31 asympt")
