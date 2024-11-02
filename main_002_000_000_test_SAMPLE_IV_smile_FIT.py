@@ -1,10 +1,10 @@
 import os
-import random
+# import random
 import polars as pl
 import random
 import matplotlib.pyplot as plt
 import implied_rnd as rnd
-
+import numpy as np
 
 """
 2024-01-24:
@@ -31,8 +31,8 @@ def main():
     selected_file = f'{ticker}.ipc'
     # selected_file = 'AMZN.ipc'
     # selected_file = 'ROKU.ipc'
-    model1 = rnd.INTERP_POLYM4
-    model2 = rnd.INTERP_SVI002
+    model1 = [rnd.INTERP_POLYM4, "POLYM4"]
+    model2 = [rnd.INTERP_SVI002, "SVI002"]
 
     weighted = True
 
@@ -84,15 +84,23 @@ def main():
         # & (pl.col('trade_volume') > 0)
         # & (pl.col('otm') == True)
         # & ((pl.col('ask') - pl.col('bid')) / ((pl.col('ask') + pl.col('bid')) / 2) < 1.75) 
+
+        x = this_pf['tslm'].to_numpy()
+        y = this_pf['implied_volatility'].to_numpy()
+        if weighted:
+            w = this_pf['open_interest'].to_numpy()
+            w = w / w.sum()
+        else:
+            w = np.array([])
         
         # not do a scatter of the 'iv' vs 'tslm' columns
         plt.scatter(this_pf['tslm'], this_pf['implied_volatility'], s=10, label = 'DATA')
 
-        v_hat_1 = rnd.getfit(this_pf['tslm'].to_numpy(), this_pf['implied_volatility'].to_numpy(), model1)
-        v_hat_2 = rnd.getfit(this_pf['tslm'].to_numpy(), this_pf['implied_volatility'].to_numpy(), model2)
+        v_hat_1 = rnd.getfit(this_pf['tslm'].to_numpy(), this_pf['implied_volatility'].to_numpy(), model1[0], weights=w)
+        v_hat_2 = rnd.getfit(this_pf['tslm'].to_numpy(), this_pf['implied_volatility'].to_numpy(), model2[0], weights=w)
         # plt.scatter(this_pf['tslm'], V_hat_poly3, s=10)
-        plt.scatter(this_pf['tslm'], v_hat_1, s=10, label = 'model1')
-        plt.scatter(this_pf['tslm'], v_hat_2, s=10, label = 'model2')
+        plt.scatter(this_pf['tslm'], v_hat_1, s=10, label = model1[1])
+        plt.scatter(this_pf['tslm'], v_hat_2, s=10, label = model2[1])
         plt.legend()
         plt.title(f'{ticker} - {one_date}')
         plt.show()

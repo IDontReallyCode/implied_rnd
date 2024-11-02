@@ -132,13 +132,18 @@ def non_linear_SVI002(x, a0, a1, a2, a3, b0, b1, b2):
 
 def _interpolate(interp: int, x: np.ndarray, y: np.ndarray, newx: np.ndarray, weights: np.array=np.array([])) -> np.ndarray:
     if interp==INTERP_LINEAR:
+        # weights in linear interpolation are not used
         # do linear interpolation
         newy = np.interp(newx, x, y)
         # plt.plot(outputx[interpmask], outputy); plt.show()
         # pass
     elif (interp>10 and interp<20):
-        #
-        p = np.poly1d(np.polyfit(x, y, interp-10))
+        # Now, if we have weights, we need to adjust the estimation of the simple polynomial
+        if len(weights)>0:
+            # Fit a polynomial of order (interp-10) to the data
+            p = np.poly1d(np.polyfit(x, y, interp-10, w=weights))
+        else:
+            p = np.poly1d(np.polyfit(x, y, interp-10))
 
         newy = p(newx)
         # plt.plot(outputx[interpmask], outputy[interpmask]); plt.show()
