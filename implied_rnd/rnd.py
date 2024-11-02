@@ -64,9 +64,14 @@ INTERP_SVI000 = 40      # Gatheral SVI model
 INTERP_SVI001 = 41      # Gatheral SVI model + arctan(x) for an asymetric/distortion feature
 INTERP_SVI002 = 42      # Gatheral SVI model + arctan(b2*x) for an asymetric/distortion feature
 
-INTERP_3D_POLY2 = 3002  # 3D polynomial of order 2
+INTERP_3D_M2VOL = 3002  # 3D polynomial of order 2 on vol
+INTERP_3D_M2VAR = 3004  # 3D polynomial of order 2 on variance
 
-INTERP_3D_SVI00 = 3100  # 3D SVI +1/t + mt
+INTERP_3D_SVI00 = 3100  # 3D SVI +t + m*t + t**2
+INTERP_3D_SVI01 = 3101  # 3D SVI +t + m*t + time-to-maturity slope
+
+INTERP_3D_FGVGG = 3200  # Francois, Galarneau-Vincent, Gauthier, & Godin 2022 on IVolS
+
 
 EXTRAP_LINEAR = 10       # works only for METHOD_STDR_EXTRAPIV
 EXTRAP_GPARTO = 20       # works only for METHOD_STDR_EXTRADEN
@@ -104,6 +109,17 @@ def non_linear_SVI000(x, a0, a1, a2, b0, b1):
     return (a0 + a1 * (x-b0) + a2 * np.sqrt(b1 + (x-b0)**2) - a2 * np.sqrt(b1))
 
 
+def non_linear_SVI03D(x, a0, a1, a2, a3, a4, a5, b0, b1):
+    # return a0 + a1 * np.sqrt(b0 + b1 * ((x+b3) ** 2)) + a2 * x + a3 * np.arctan(b2 * (x+b4))
+    return (a0 + a1 * (x[:,0]-b0) + a2 * np.sqrt(b1 + (x[:,0]-b0)**2) - a2 * np.sqrt(b1)) + a3*x[:,1] + a4*x[:,1]*x[:,0] + a5*x[:,1]**2
+
+
+def non_linear_SVI13D(x, a0, a1, a2, a3, a4, a5, b0, b1):
+    # return a0 + a1 * np.sqrt(b0 + b1 * ((x+b3) ** 2)) + a2 * x + a3 * np.arctan(b2 * (x+b4))
+    # return (a0 + a1 * (x[:,0]-b0) + a2 * np.sqrt(b1 + (x[:,0]-b0)**2) - a2 * np.sqrt(b1)) + a3*x[:,1] + a4*((1 - np.exp(- (np.multiply(x[:,0],x[:,0])))) * np.log(x[:,1]/5)) + a5*(np.exp(-np.sqrt(x[:,1]/0.25)))
+    return (a0 + a1 * (x[:,0]-b0) + a2 * np.sqrt(b1 + (x[:,0]-b0)**2) - a2 * np.sqrt(b1)) + a3*x[:,1] + a4*(x[:,0] * np.log(x[:,1]/5)) + a5*(np.exp(-np.sqrt(x[:,1]/0.25)))
+
+
 def non_linear_SVI001(x, a0, a1, a2, a3, b0, b1):
     # return a0 + a1 * np.sqrt(b0 + b1 * ((x+b3) ** 2)) + a2 * x + a3 * np.arctan(b2 * (x+b4))
     return (a0 + a1 * (x-b0) + a2 * np.sqrt(b1 + (x-b0)**2) - a2 * np.sqrt(b1) + a3 * np.arctan(x-b0))
@@ -114,7 +130,7 @@ def non_linear_SVI002(x, a0, a1, a2, a3, b0, b1, b2):
     return (a0 + a1 * (x-b0) + a2 * np.sqrt(b1 + (x-b0)**2) - a2 * np.sqrt(b1) + a3 * np.arctan(b2*(x-b0)))
 
 
-def _interpolate(interp: int, x: np.ndarray, y: np.ndarray, newx: np.ndarray) -> np.ndarray:
+def _interpolate(interp: int, x: np.ndarray, y: np.ndarray, newx: np.ndarray, weights: np.array=np.array([])) -> np.ndarray:
     if interp==INTERP_LINEAR:
         # do linear interpolation
         newy = np.interp(newx, x, y)
@@ -441,7 +457,7 @@ def _interpolate(interp: int, x: np.ndarray, y: np.ndarray, newx: np.ndarray) ->
         # Predict new values
         newy = np.sqrt(non_linear_SVI002(newx, *params))
 
-    elif interp==INTERP_3D_POLY2:
+    elif interp==INTERP_3D_M2VOL:
         X = np.ones((len(x),6))
         X[:,1] = x[:,0]
         X[:,2] = x[:,0]**2
@@ -460,6 +476,106 @@ def _interpolate(interp: int, x: np.ndarray, y: np.ndarray, newx: np.ndarray) ->
         
         newy = np.matmul(X,beta)     
 
+    elif interp==INTERP_3D_M2VAR:
+        X = np.ones((len(x),6))
+        X[:,1] = x[:,0]
+        X[:,2] = x[:,0]**2
+        X[:,3] = x[:,1]
+        X[:,4] = x[:,1]**2
+        X[:,5] = x[:,0]*x[:,1]
+
+        beta = np.linalg.lstsq(X,y**2,rcond=-1)[0]
+        
+        X = np.ones((len(newx),6))
+        X[:,1] = newx[:,0]
+        X[:,2] = newx[:,0]**2
+        X[:,3] = newx[:,1]
+        X[:,4] = newx[:,1]**2
+        X[:,5] = newx[:,0]*newx[:,1]
+        
+        newy2 = np.matmul(X,beta)
+        if np.any(newy2<0):
+            # print('Negative Variance')
+            newy2[newy2<0] = 0
+
+        newy = np.sqrt(newy2)
+
+
+    elif interp==INTERP_3D_FGVGG:
+        X = np.ones((len(x),5))                                                                                 # constant
+        X[:,1] = np.exp(-np.sqrt(x[:,1]/0.25))                                                                  # Time-to-Maturity Slope
+        X[:,2] = ( (np.exp(2*x[:,0])-1) / (np.exp(2*x[:,0])+1))*(x[:,0]<0) + x[:,0]*(x[:,0]>=0)                   # Moneyness Slope
+        # X[:,3] = np.multiply((1 - np.exp(- (np.multiply(x[:,0],x[:,0])))) , np.log(x[:,1]/5))                   # Smile Attenuation
+        X[:,3] = ((1 - np.exp(- (np.multiply(x[:,0],x[:,0])))) * np.log(x[:,1]/5))                   # Smile Attenuation
+        left = x[:,0]*(x[:,0]<0)
+        # X[:,4] = np.multiply((1 - np.exp((3*left)**3)),np.log(x[:,1]/5))*(x[:,0]<0)                             # Smirk
+        X[:,4] = ((1 - np.exp((3*left)**3)) * np.log(x[:,1]/5))*(x[:,0]<0)                             # Smirk
+        # X[:,5] = x[:,0]*x[:,1]
+
+        beta = np.linalg.lstsq(X,y,rcond=-1)[0]
+        
+        X = np.ones((len(newx),5))
+        X[:,1] = np.exp(-np.sqrt(newx[:,1]/0.25))
+        X[:,2] = ( (np.exp(2*newx[:,0])-1) / (np.exp(2*newx[:,0])+1))*(newx[:,0]<0) + newx[:,0]*(newx[:,0]>=0) 
+        # X[:,3] = np.multiply((1 - np.exp(- (np.multiply(newx[:,0],newx[:,0])))) , np.log(newx[:,1]/5))
+        X[:,3] = ((1 - np.exp(- (np.multiply(newx[:,0],newx[:,0])))) *  np.log(newx[:,1]/5))
+        left = newx[:,0]*(x[:,0]<0)
+        # X[:,4] = (1 - np.exp((3*left)**3))*np.log(newx[:,1]/5)*(newx[:,0]<0)
+        X[:,4] = (1 - np.exp((3*left)**3)) * np.log(newx[:,1]/5)*(newx[:,0]<0)
+        
+        newy = np.matmul(X,beta)     
+
+
+    elif interp==INTERP_3D_SVI00:
+        # 
+        # Initial guess for the parameters
+        # non_linear_SVI000(x, a0, a1, a2, a3, a4, a5, b0, b1):
+        initial_guess = [np.mean(y)**2, 1, 1, 0, 0, 0, 0, 1]
+        # return np.sqrt(a0 + a1 * (x-b0) + a2 * np.sqrt(b1 + (x-b0)**2) - a2 * np.sqrt(b1))
+
+        # Define bounds: (lower_bounds, upper_bounds)
+        lower_bounds = [0     , -np.inf, -np.inf, -np.inf, -np.inf, -np.inf, -0.1, 0]  # a0 > 0, -0.1 < b0
+        upper_bounds = [np.inf,  np.inf,  np.inf,  np.inf,  np.inf,  np.inf,  0.1,  np.inf]  # b0 < 0.1, rest unbounded
+
+        # debug
+
+        # y = non_linear_SVI000(x, .20, 1, 1, 0, 1)
+        # e = residuals([.20, 1, 1, 0, 1], x, y, non_linear_SVI000)
+
+        # Fit the curve
+        params = least_squares(residuals, initial_guess, args=(x, y**2, non_linear_SVI03D), bounds=(lower_bounds, upper_bounds), method='trf').x
+        
+        # Predict new values
+        newy = np.sqrt(non_linear_SVI03D(newx, *params))
+
+    elif interp==INTERP_3D_SVI01:
+        # 
+        # Initial guess for the parameters
+        # non_linear_SVI000(x, a0, a1, a2, a3, a4, a5, b0, b1):
+        initial_guess = [np.mean(y)**2, 1, 1, 0, 0, 0, 0, 1]
+        # return np.sqrt(a0 + a1 * (x-b0) + a2 * np.sqrt(b1 + (x-b0)**2) - a2 * np.sqrt(b1))
+
+        # Define bounds: (lower_bounds, upper_bounds)
+        lower_bounds = [0     , -np.inf, -np.inf, -np.inf, -np.inf, -np.inf, -0.1, 0]  # a0 > 0, -0.1 < b0
+        upper_bounds = [np.inf,  np.inf,  np.inf,  np.inf,  np.inf,  np.inf,  0.1,  np.inf]  # b0 < 0.1, rest unbounded
+
+        # debug
+
+        # y = non_linear_SVI000(x, .20, 1, 1, 0, 1)
+        # e = residuals([.20, 1, 1, 0, 1], x, y, non_linear_SVI000)
+
+        # Fit the curve
+        params = least_squares(residuals, initial_guess, args=(x, y**2, non_linear_SVI13D), bounds=(lower_bounds, upper_bounds), method='trf').x
+        
+        # Predict new values
+        newy2 = non_linear_SVI13D(newx, *params)
+        if np.any(newy2<0):
+            # print('Negative Variance')
+            newy2[newy2<0] = 0
+
+        newy = np.sqrt(newy2)
+
+
     return newy
 
 
@@ -473,11 +589,11 @@ def _scale(x: np.ndarray, f: np.ndarray) -> np.ndarray:
     return f
 
 
-def getfit(x: np.ndarray, y: np.ndarray, interp: int=INTERP_POLYM3, newx: np.ndarray=np.array([])) -> np.ndarray:
+def getfit(x: np.ndarray, y: np.ndarray, interp: int=INTERP_POLYM3, newx: np.ndarray=np.array([]), weights: np.ndarray=np.array([])) -> np.ndarray:
     if newx.size==0:
-        return _interpolate(interp, x, y, x)
+        return _interpolate(interp, x, y, x, weights)
     else:
-        return _interpolate(interp, x, y, newx)
+        return _interpolate(interp, x, y, newx, weights)
 
 
 def getfitextrapolated(x: np.ndarray, y: np.ndarray, newx: np.ndarray, interp: int=INTERP_POLYM3) -> np.ndarray:

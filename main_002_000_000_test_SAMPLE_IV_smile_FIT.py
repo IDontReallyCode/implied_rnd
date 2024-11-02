@@ -21,16 +21,20 @@ Thus, for now, the program will use the closest maturity to 1-months horizon (30
 
 def main():
     # Set the seed for random number generation
-    random.seed(357951)
+    SEED = 357951
 
     directory = "E:/CBOE/ipc_per_tick"
     N = 10  # Number of dates to select
 
     # selected_file = 'SPX.ipc'
-    ticker = 'AMZN'
+    ticker = 'SPX'
     selected_file = f'{ticker}.ipc'
     # selected_file = 'AMZN.ipc'
     # selected_file = 'ROKU.ipc'
+    model1 = rnd.INTERP_POLYM4
+    model2 = rnd.INTERP_SVI002
+
+    weighted = True
 
     file_path = os.path.join(directory, selected_file)
     df = pl.read_ipc(file_path)
@@ -41,7 +45,7 @@ def main():
     df = df.with_columns(pl.col('quote_datetime').cast(pl.Date).alias('quote_date'))
     
     # Pick N random dates from the quote_datetime column
-    random_dates = df['quote_date'].unique().sample(N).to_list()
+    random_dates = df['quote_date'].unique().sample(N, seed=SEED).to_list()
 
     # import datetime
     # random_dates = [datetime.date(2019, 12, 31)]
@@ -82,15 +86,14 @@ def main():
         # & ((pl.col('ask') - pl.col('bid')) / ((pl.col('ask') + pl.col('bid')) / 2) < 1.75) 
         
         # not do a scatter of the 'iv' vs 'tslm' columns
-        # plt.scatter(this_pf['tslm'], this_pf['bid_iv'])
-        # plt.scatter(this_pf['strike'], this_pf['implied_volatility'])
-        plt.scatter(this_pf['tslm'], this_pf['implied_volatility'], s=10)
+        plt.scatter(this_pf['tslm'], this_pf['implied_volatility'], s=10, label = 'DATA')
 
-        # V_hat_poly3 = rnd.getfit(this_pf['tslm'].to_numpy(), this_pf['implied_volatility'].to_numpy(), rnd.INTERP_POLYM3)
-        V_hat_nlin1 = rnd.getfit(this_pf['tslm'].to_numpy(), this_pf['implied_volatility'].to_numpy(), rnd.INTERP_FACTR52)
+        v_hat_1 = rnd.getfit(this_pf['tslm'].to_numpy(), this_pf['implied_volatility'].to_numpy(), model1)
+        v_hat_2 = rnd.getfit(this_pf['tslm'].to_numpy(), this_pf['implied_volatility'].to_numpy(), model2)
         # plt.scatter(this_pf['tslm'], V_hat_poly3, s=10)
-        plt.scatter(this_pf['tslm'], V_hat_nlin1, s=10)
-        plt.legend(['data', 'INTERP_FACTR52'])
+        plt.scatter(this_pf['tslm'], v_hat_1, s=10, label = 'model1')
+        plt.scatter(this_pf['tslm'], v_hat_2, s=10, label = 'model2')
+        plt.legend()
         plt.title(f'{ticker} - {one_date}')
         plt.show()
 
