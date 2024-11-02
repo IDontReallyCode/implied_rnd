@@ -33,6 +33,7 @@ def main():
     # selected_file = 'ROKU.ipc'
     model1 = [rnd.INTERP_POLYM4, "POLYM4"]
     model2 = [rnd.INTERP_SVI002, "SVI002"]
+    # model2 = [rnd.INTERP_FACTR1, "FACTR1"]
 
     weighted = True
 
