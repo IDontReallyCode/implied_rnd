@@ -161,7 +161,7 @@ def SVI002_con_u(a0, a1, a2, a3, b0, b1, b2):
 
 def non_linear_SVI03D(x, a0, a1, a2, a3, a4, a5, b0, b1):
     # return a0 + a1 * np.sqrt(b0 + b1 * ((x+b3) ** 2)) + a2 * x + a3 * np.arctan(b2 * (x+b4))
-    return (a0 + a1 * (x[:,0]-b0) + a2 * np.sqrt(b1 + (x[:,0]-b0)**2) - a2 * np.sqrt(b1)) + a3*x[:,1] + a4*x[:,1]*x[:,0] + a5*x[:,1]**2
+    return (a0 + a1 * (x[:,0]-b0) + a2 * np.sqrt(b1 + (x[:,0]-b0)**2) - a2 * np.sqrt(b1+b0**2)) + a3*x[:,1] + a4*x[:,1]*x[:,0] + a5*x[:,1]**2
 
 
 def non_linear_SVI13D(x, a0, a1, a2, a3, a4, a5, b0, b1):
@@ -181,13 +181,13 @@ def non_linear_SVI002(x, a0, a1, a2, a3, b0, b1, b2):
 
 
 def _interpolate(interp: int, x: np.ndarray, y: np.ndarray, newx: np.ndarray, weights: np.array=np.array([])) -> np.ndarray:
-    if interp==INTERP_LINEAR:
+    if interp==INTERP_LINEAR:    # Linear interpolation
         # weights in linear interpolation are not used
         # do linear interpolation
         newy = np.interp(newx, x, y)
         # plt.plot(outputx[interpmask], outputy); plt.show()
         # pass
-    elif (interp>10 and interp<20):
+    elif (interp>10 and interp<20):   # Polynomial interpolation
         # Now, if we have weights, we need to adjust the estimation of the simple polynomial
         if len(weights)>0:
             # Fit a polynomial of order (interp-10) to the data
@@ -199,7 +199,7 @@ def _interpolate(interp: int, x: np.ndarray, y: np.ndarray, newx: np.ndarray, we
         # plt.plot(outputx[interpmask], outputy[interpmask]); plt.show()
         # plt.plt()
         # pass
-    elif (interp>99 and interp<2000):
+    elif (interp>99 and interp<2000):   # Affine Factor model interpolation
         # Fit a factor model with the SET#1
         if interp==INTERP_FACTR1:
             X = np.ones((len(x),2))
@@ -369,7 +369,7 @@ def _interpolate(interp: int, x: np.ndarray, y: np.ndarray, newx: np.ndarray, we
         newy = np.matmul(Xout,beta)
         # pass
 
-    elif (interp>1999 and interp<3000):
+    elif (interp>1999 and interp<3000):     # NON-Affine Factor model interpolation
         
         selected_constraints = []
 
@@ -454,10 +454,10 @@ def _interpolate(interp: int, x: np.ndarray, y: np.ndarray, newx: np.ndarray, we
         # Predict new values
         newy = np.sqrt(thefunction(newx, *params))
 
-        if abs(params[1])>params[2]:
-            pause = 1
+        # if abs(params[1])>params[2]:
+        #     pause = 1
 
-        print(params)
+        # print(params)
 
         # initresid = residuals(params, x, y**2, thefunction)
 
@@ -475,125 +475,123 @@ def _interpolate(interp: int, x: np.ndarray, y: np.ndarray, newx: np.ndarray, we
         #     # Predict new values
         #     print('Residuals:', np.sum(initresid**2), np.sum(secndresid**2))
 
+    elif (interp>2999 and interp<4000):     # Affine SURFACE Factor model interpolation
+        if interp==INTERP_3D_M2VOL:
+            X = np.ones((len(x),6))
+            X[:,1] = x[:,0]
+            X[:,2] = x[:,0]**2
+            X[:,3] = x[:,1]
+            X[:,4] = x[:,1]**2
+            X[:,5] = x[:,0]*x[:,1]
+            
+            Xnew = np.ones((len(newx),6))
+            Xnew[:,1] = newx[:,0]
+            Xnew[:,2] = newx[:,0]**2
+            Xnew[:,3] = newx[:,1]
+            Xnew[:,4] = newx[:,1]**2
+            Xnew[:,5] = newx[:,0]*newx[:,1]
+            
 
-    elif interp==INTERP_3D_M2VOL:
-        X = np.ones((len(x),6))
-        X[:,1] = x[:,0]
-        X[:,2] = x[:,0]**2
-        X[:,3] = x[:,1]
-        X[:,4] = x[:,1]**2
-        X[:,5] = x[:,0]*x[:,1]
+            # elif interp==INTERP_3D_M2VAR:
+            #     X = np.ones((len(x),6))
+            #     X[:,1] = x[:,0]
+            #     X[:,2] = x[:,0]**2
+            #     X[:,3] = x[:,1]
+            #     X[:,4] = x[:,1]**2
+            #     X[:,5] = x[:,0]*x[:,1]
+
+            #     beta = np.linalg.lstsq(X,y**2,rcond=-1)[0]
+                
+            #     X = np.ones((len(newx),6))
+            #     X[:,1] = newx[:,0]
+            #     X[:,2] = newx[:,0]**2
+            #     X[:,3] = newx[:,1]
+            #     X[:,4] = newx[:,1]**2
+            #     X[:,5] = newx[:,0]*newx[:,1]
+                
+            #     newy2 = np.matmul(X,beta)
+            #     if np.any(newy2<0):
+            #         # print('Negative Variance')
+            #         newy2[newy2<0] = 0
+
+            #     newy = np.sqrt(newy2)
+
+        elif interp==INTERP_3D_FGVGG:
+            X = np.ones((len(x),5))                                                                                 # constant
+            X[:,1] = np.exp(-np.sqrt(x[:,1]/0.25))                                                                  # Time-to-Maturity Slope
+            X[:,2] = ( (np.exp(2*x[:,0])-1) / (np.exp(2*x[:,0])+1))*(x[:,0]<0) + x[:,0]*(x[:,0]>=0)                   # Moneyness Slope
+            X[:,3] = ((1 - np.exp(- (np.multiply(x[:,0],x[:,0])))) * np.log(x[:,1]/5))                   # Smile Attenuation
+            left = x[:,0]*(x[:,0]<0)
+            X[:,4] = ((1 - np.exp((3*left)**3)) * np.log(x[:,1]/5))*(x[:,0]<0)                             # Smirk
+
+            Xnew = np.ones((len(newx),5))
+            Xnew[:,1] = np.exp(-np.sqrt(newx[:,1]/0.25))
+            Xnew[:,2] = ( (np.exp(2*newx[:,0])-1) / (np.exp(2*newx[:,0])+1))*(newx[:,0]<0) + newx[:,0]*(newx[:,0]>=0) 
+            Xnew[:,3] = ((1 - np.exp(- (np.multiply(newx[:,0],newx[:,0])))) *  np.log(newx[:,1]/5))
+            left = newx[:,0]*(x[:,0]<0)
+            Xnew[:,4] = (1 - np.exp((3*left)**3)) * np.log(newx[:,1]/5)*(newx[:,0]<0)
 
         beta = np.linalg.lstsq(X,y,rcond=-1)[0]
-        
-        X = np.ones((len(newx),6))
-        X[:,1] = newx[:,0]
-        X[:,2] = newx[:,0]**2
-        X[:,3] = newx[:,1]
-        X[:,4] = newx[:,1]**2
-        X[:,5] = newx[:,0]*newx[:,1]
-        
-        newy = np.matmul(X,beta)     
 
-    elif interp==INTERP_3D_M2VAR:
-        X = np.ones((len(x),6))
-        X[:,1] = x[:,0]
-        X[:,2] = x[:,0]**2
-        X[:,3] = x[:,1]
-        X[:,4] = x[:,1]**2
-        X[:,5] = x[:,0]*x[:,1]
+        newy = np.matmul(Xnew,beta)  
 
-        beta = np.linalg.lstsq(X,y**2,rcond=-1)[0]
+        # end of AFFINE SURFACE Factor model interpolation
+
+    elif (interp>3999 and interp<5000):    # NON-Affine SURFACE Factor model interpolation
+        if interp==INTERP_3D_SVI00:
+            # a0 LEVEL + a1 SLOPE + a2 SVI + a3 t + a4 t*m + a5 t^2                 
+            # (a0 + a1 * (x[:,0]-b0) + a2 * np.sqrt(b1 + (x[:,0]-b0)**2) - a2 * np.sqrt(b1+b0**2)) + a3*x[:,1] + a4*x[:,1]*x[:,0] + a5*x[:,1]**2
+            # Initial guess for the parameters
+            #               [           a0, a1, a2, a3, a4, a5, b0, b1]:
+            initial_guess = [np.mean(y)**2,  0,  1,  0,  0,  0,  0,  1]
+            # 
+
+            # Define bounds: (lower_bounds, upper_bounds)
+            #              [    a0,      a1,      a2,      a3,      a4,      a5,      b0,      b1]
+            lower_bounds = [0     , -np.inf, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf,       0]  # a0 > 0, -0.1 < b0
+            upper_bounds = [np.inf,  np.inf,  np.inf,  np.inf,  np.inf,  np.inf,  np.inf,  np.inf]  # b0 < 0.1, rest unbounded
+
+            interpfunction = non_linear_SVI03D
+
+
+        elif interp==INTERP_3D_SVI01:
+            # 
+            # a0 LEVEL + a1 SLOPE + a2 SVI + a3 t + a4 Smile_Attenuation + a5 Time-to-Maturity Slope
+            # a0 + a1 * (x[:,0]-b0) + a2 * np.sqrt(b1 + (x[:,0]-b0)**2) - a2 * np.sqrt(b1)) + a3*x[:,1] + a4*(x[:,0] * np.log(x[:,1]/5)) + a5*(np.exp(-np.sqrt(x[:,1]/0.25))
+            # Initial guess for the parameters
+            #               [           a0, a1, a2, a3, a4, a5, b0, b1]:
+            initial_guess = [np.mean(y)**2,  0,  1,  0,  0,  0,  0,  1]
+            # return np.sqrt(a0 + a1 * (x-b0) + a2 * np.sqrt(b1 + (x-b0)**2) - a2 * np.sqrt(b1))
+
+            # Define bounds: (lower_bounds, upper_bounds)
+            lower_bounds = [0     , -np.inf, -np.inf, -np.inf, -np.inf, -np.inf, -np.inf,       0]  # a0 > 0, -0.1 < b0
+            upper_bounds = [np.inf,  np.inf,  np.inf,  np.inf,  np.inf,  np.inf,  np.inf,  np.inf]  # b0 < 0.1, rest unbounded
+
+            interpfunction = non_linear_SVI13D
+
+            # Fit the curve
+            params = least_squares(residuals, initial_guess, args=(x, y**2, non_linear_SVI13D), bounds=(lower_bounds, upper_bounds), method='trf').x
+            
+            # Predict new values
+            newy2 = non_linear_SVI13D(newx, *params)
+            if np.any(newy2<0):
+                # print('Negative Variance')
+                newy2[newy2<0] = 0
+
+            newy = np.sqrt(newy2)
+
+
+        # Fit the curve
+        params = least_squares(residuals, initial_guess, args=(x, y**2, interpfunction), bounds=(lower_bounds, upper_bounds), method='trf').x
         
-        X = np.ones((len(newx),6))
-        X[:,1] = newx[:,0]
-        X[:,2] = newx[:,0]**2
-        X[:,3] = newx[:,1]
-        X[:,4] = newx[:,1]**2
-        X[:,5] = newx[:,0]*newx[:,1]
-        
-        newy2 = np.matmul(X,beta)
+        # Predict new values
+        newy2 = interpfunction(newx, *params)
         if np.any(newy2<0):
             # print('Negative Variance')
             newy2[newy2<0] = 0
-
         newy = np.sqrt(newy2)
 
-
-    elif interp==INTERP_3D_FGVGG:
-        X = np.ones((len(x),5))                                                                                 # constant
-        X[:,1] = np.exp(-np.sqrt(x[:,1]/0.25))                                                                  # Time-to-Maturity Slope
-        X[:,2] = ( (np.exp(2*x[:,0])-1) / (np.exp(2*x[:,0])+1))*(x[:,0]<0) + x[:,0]*(x[:,0]>=0)                   # Moneyness Slope
-        # X[:,3] = np.multiply((1 - np.exp(- (np.multiply(x[:,0],x[:,0])))) , np.log(x[:,1]/5))                   # Smile Attenuation
-        X[:,3] = ((1 - np.exp(- (np.multiply(x[:,0],x[:,0])))) * np.log(x[:,1]/5))                   # Smile Attenuation
-        left = x[:,0]*(x[:,0]<0)
-        # X[:,4] = np.multiply((1 - np.exp((3*left)**3)),np.log(x[:,1]/5))*(x[:,0]<0)                             # Smirk
-        X[:,4] = ((1 - np.exp((3*left)**3)) * np.log(x[:,1]/5))*(x[:,0]<0)                             # Smirk
-        # X[:,5] = x[:,0]*x[:,1]
-
-        beta = np.linalg.lstsq(X,y,rcond=-1)[0]
-        
-        X = np.ones((len(newx),5))
-        X[:,1] = np.exp(-np.sqrt(newx[:,1]/0.25))
-        X[:,2] = ( (np.exp(2*newx[:,0])-1) / (np.exp(2*newx[:,0])+1))*(newx[:,0]<0) + newx[:,0]*(newx[:,0]>=0) 
-        # X[:,3] = np.multiply((1 - np.exp(- (np.multiply(newx[:,0],newx[:,0])))) , np.log(newx[:,1]/5))
-        X[:,3] = ((1 - np.exp(- (np.multiply(newx[:,0],newx[:,0])))) *  np.log(newx[:,1]/5))
-        left = newx[:,0]*(x[:,0]<0)
-        # X[:,4] = (1 - np.exp((3*left)**3))*np.log(newx[:,1]/5)*(newx[:,0]<0)
-        X[:,4] = (1 - np.exp((3*left)**3)) * np.log(newx[:,1]/5)*(newx[:,0]<0)
-        
-        newy = np.matmul(X,beta)     
-
-
-    elif interp==INTERP_3D_SVI00:
-        # 
-        # Initial guess for the parameters
-        # non_linear_SVI000(x, a0, a1, a2, a3, a4, a5, b0, b1):
-        initial_guess = [np.mean(y)**2, 1, 1, 0, 0, 0, 0, 1]
-        # return np.sqrt(a0 + a1 * (x-b0) + a2 * np.sqrt(b1 + (x-b0)**2) - a2 * np.sqrt(b1))
-
-        # Define bounds: (lower_bounds, upper_bounds)
-        lower_bounds = [0     , -np.inf, -np.inf, -np.inf, -np.inf, -np.inf, -0.1, 0]  # a0 > 0, -0.1 < b0
-        upper_bounds = [np.inf,  np.inf,  np.inf,  np.inf,  np.inf,  np.inf,  0.1,  np.inf]  # b0 < 0.1, rest unbounded
-
-        # debug
-
-        # y = non_linear_SVI000(x, .20, 1, 1, 0, 1)
-        # e = residuals([.20, 1, 1, 0, 1], x, y, non_linear_SVI000)
-
-        # Fit the curve
-        params = least_squares(residuals, initial_guess, args=(x, y**2, non_linear_SVI03D), bounds=(lower_bounds, upper_bounds), method='trf').x
-        
-        # Predict new values
-        newy = np.sqrt(non_linear_SVI03D(newx, *params))
-
-    elif interp==INTERP_3D_SVI01:
-        # 
-        # Initial guess for the parameters
-        # non_linear_SVI000(x, a0, a1, a2, a3, a4, a5, b0, b1):
-        initial_guess = [np.mean(y)**2, 1, 1, 0, 0, 0, 0, 1]
-        # return np.sqrt(a0 + a1 * (x-b0) + a2 * np.sqrt(b1 + (x-b0)**2) - a2 * np.sqrt(b1))
-
-        # Define bounds: (lower_bounds, upper_bounds)
-        lower_bounds = [0     , -np.inf, -np.inf, -np.inf, -np.inf, -np.inf, -0.1, 0]  # a0 > 0, -0.1 < b0
-        upper_bounds = [np.inf,  np.inf,  np.inf,  np.inf,  np.inf,  np.inf,  0.1,  np.inf]  # b0 < 0.1, rest unbounded
-
-        # debug
-
-        # y = non_linear_SVI000(x, .20, 1, 1, 0, 1)
-        # e = residuals([.20, 1, 1, 0, 1], x, y, non_linear_SVI000)
-
-        # Fit the curve
-        params = least_squares(residuals, initial_guess, args=(x, y**2, non_linear_SVI13D), bounds=(lower_bounds, upper_bounds), method='trf').x
-        
-        # Predict new values
-        newy2 = non_linear_SVI13D(newx, *params)
-        if np.any(newy2<0):
-            # print('Negative Variance')
-            newy2[newy2<0] = 0
-
-        newy = np.sqrt(newy2)
-
+        # end of NON-AFFINE SURFACE Factor model interpolation
 
     return newy
 
