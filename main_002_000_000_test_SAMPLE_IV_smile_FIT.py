@@ -27,15 +27,16 @@ def main():
     N = 10  # Number of dates to select
 
     # selected_file = 'SPX.ipc'
-    ticker = 'SPX'
+    ticker = 'SPY'
     selected_file = f'{ticker}.ipc'
     # selected_file = 'AMZN.ipc'
     # selected_file = 'ROKU.ipc'
-    model1 = [rnd.INTERP_POLYM4, "POLYM4"]
-    model2 = [rnd.INTERP_SVI002, "SVI002"]
+    # model1 = [rnd.INTERP_POLYM4, "POLYM4"]
+    model1 = [rnd.INTERP_SVI100, "SVI100"]
+    model2 = [rnd.INTERP_SVI002, "SVI102"]
     # model2 = [rnd.INTERP_FACTR1, "FACTR1"]
 
-    weighted = True
+    weighted = False
 
     file_path = os.path.join(directory, selected_file)
     df = pl.read_ipc(file_path)
@@ -105,6 +106,11 @@ def main():
         plt.legend()
         plt.title(f'{ticker} - {one_date}')
         plt.show()
+
+        # # Save the variables x and y into two files named test_x.csv and test_y.csv
+        # np.savetxt('test_x.csv', x, delimiter=',')
+        # np.savetxt('test_y.csv', y, delimiter=',')
+
 
         pass
 

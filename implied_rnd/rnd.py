@@ -61,8 +61,10 @@ INTERP_FACTR8 = 128      # Just one hyperbolla + x for asymetry + arctan(x) for 
 INTERP_NONLI1 = 2000      # non-linear hyperbolla + x for asymetry + arctan(x) for an asymetric/distortion feature
 
 INTERP_SVI000 = 2040      # Gatheral SVI model
+INTERP_SVI100 = 2140      # Gatheral SVI model constrained to have a negative slope far left
 INTERP_SVI001 = 2041      # Gatheral SVI model + arctan(x) for an asymetric/distortion feature
 INTERP_SVI002 = 2042      # Gatheral SVI model + arctan(b2*x) for an asymetric/distortion feature
+INTERP_SVI102 = 2142      # Gatheral SVI model + arctan(b2*x) for an asymetric/distortion feature
 
 INTERP_3D_M2VOL = 3002  # 3D polynomial of order 2 on vol
 INTERP_3D_M2VAR = 3004  # 3D polynomial of order 2 on variance
@@ -92,8 +94,18 @@ def ols_wols(X: np.ndarray, y: np.ndarray, weights: np.ndarray=np.array([])) -> 
     return beta
 
 
+# def constraint_fun(params):
+#     return -confun(params)  # Ensure the constraint is negative
 
-def residuals(params, x, y, model_func):
+
+# def format_constraints(selected_constraints):
+#     constraints = []
+#     for constraint in selected_constraints:
+#         constraints.append({'type': 'ineq', 'fun': lambda params: -constraint(params)})
+#     return constraints
+
+
+def residuals(params, x, y, model_func, weights=np.array([]), constraints=[]):
     """
     General residuals function for least_squares.
 
@@ -106,7 +118,20 @@ def residuals(params, x, y, model_func):
     Returns:
     - Residuals (difference between predicted and actual values).
     """
-    return y - model_func(x, *params)
+
+    penalty = 0
+
+    if constraints:
+        for constraint in constraints:
+            penalty += (constraint(*params)*1000)**2
+
+    if penalty>0:
+        pause = 1
+
+    if len(weights) > 0:
+        return weights**2 * (y - model_func(x, *params)) + penalty
+    else:
+        return y - model_func(x, *params) + penalty
 
 
 # Define the non-linear function
@@ -117,7 +142,21 @@ def non_linear_func31(x, a0, a1, a2, b0):
 
 def non_linear_SVI000(x, a0, a1, a2, b0, b1):
     # return a0 + a1 * np.sqrt(b0 + b1 * ((x+b3) ** 2)) + a2 * x + a3 * np.arctan(b2 * (x+b4))
-    return (a0 + a1 * (x-b0) + a2 * np.sqrt(b1 + (x-b0)**2) - a2 * np.sqrt(b1))
+    return (a0 + a1 * (x-b0) + a2 * np.sqrt(b1 + (x-b0)**2) - a2 * np.sqrt(b1+b0**2))
+
+
+def SVI000_con_u(a0, a1, a2, b0, b1):
+    penalty = max(abs(a1) - a2,0)
+    if penalty>0:
+        penalty = penalty*999999
+    return penalty
+
+
+def SVI002_con_u(a0, a1, a2, a3, b0, b1, b2):
+    penalty = max(abs(a1) - a2,0)
+    if penalty>0:
+        penalty = penalty*999999
+    return penalty
 
 
 def non_linear_SVI03D(x, a0, a1, a2, a3, a4, a5, b0, b1):
@@ -133,12 +172,12 @@ def non_linear_SVI13D(x, a0, a1, a2, a3, a4, a5, b0, b1):
 
 def non_linear_SVI001(x, a0, a1, a2, a3, b0, b1):
     # return a0 + a1 * np.sqrt(b0 + b1 * ((x+b3) ** 2)) + a2 * x + a3 * np.arctan(b2 * (x+b4))
-    return (a0 + a1 * (x-b0) + a2 * np.sqrt(b1 + (x-b0)**2) - a2 * np.sqrt(b1) + a3 * np.arctan(x-b0))
+    return (a0 + a1 * (x-b0) + a2 * np.sqrt(b1 + (x-b0)**2) - a2 * np.sqrt(b1+b0**2) + a3 * np.arctan(x-b0))
 
 
 def non_linear_SVI002(x, a0, a1, a2, a3, b0, b1, b2):
     # return a0 + a1 * np.sqrt(b0 + b1 * ((x+b3) ** 2)) + a2 * x + a3 * np.arctan(b2 * (x+b4))
-    return (a0 + a1 * (x-b0) + a2 * np.sqrt(b1 + (x-b0)**2) - a2 * np.sqrt(b1) + a3 * np.arctan(b2*(x-b0)))
+    return (a0 + a1 * (x-b0) + a2 * np.sqrt(b1 + (x-b0)**2) - a2 * np.sqrt(b1+b0**2) + a3 * np.arctan(b2*(x-b0)))
 
 
 def _interpolate(interp: int, x: np.ndarray, y: np.ndarray, newx: np.ndarray, weights: np.array=np.array([])) -> np.ndarray:
@@ -331,6 +370,9 @@ def _interpolate(interp: int, x: np.ndarray, y: np.ndarray, newx: np.ndarray, we
         # pass
 
     elif (interp>1999 and interp<3000):
+        
+        selected_constraints = []
+
         if interp==INTERP_NONLI1:
             thefunction = non_linear_func31
             # Initial guess for the parameters
@@ -341,42 +383,98 @@ def _interpolate(interp: int, x: np.ndarray, y: np.ndarray, newx: np.ndarray, we
             thefunction = non_linear_SVI000
             # Initial guess for the parameters
             # non_linear_SVI000(x, a0, a1, a2, b0, b1):
-            initial_guess = [np.mean(y)**2, 1, 1, 0, 1]
+            initial_guess = [np.min(y)**2, 1, 0.1, 0.1, 1]
             # return np.sqrt(a0 + a1 * (x-b0) + a2 * np.sqrt(b1 + (x-b0)**2) - a2 * np.sqrt(b1))
 
             # Define bounds: (lower_bounds, upper_bounds)
-            lower_bounds = [0     , -np.inf, -np.inf, -0.1, 0]  # a0 > 0, -0.1 < b0
-            upper_bounds = [np.inf,  np.inf,  np.inf,  0.1,  np.inf]  # b0 < 0.1, rest unbounded
+            #               cte,    slope  hypercurve  location,  curve
+            lower_bounds = [0     , -np.inf,       0,   -np.inf,      0]  # a0 > 0, -0.1 < b0
+            upper_bounds = [np.inf, +np.inf,  np.inf,   +np.inf, np.inf]  # b0 < 0.1, rest unbounded
 
+
+        elif interp==INTERP_SVI100:
+            thefunction = non_linear_SVI000
+            # Initial guess for the parameters
+            # non_linear_SVI000(x, a0,    a1, a2,   b0, b1):
+            initial_guess = [np.min(y)**2, 1, 0.1, 0.1, 1]
+            # return np.sqrt(a0 + a1 * (x-b0) + a2 * np.sqrt(b1 + (x-b0)**2) - a2 * np.sqrt(b1))
+
+            # Define bounds: (lower_bounds, upper_bounds)
+            lower_bounds = [0     , -np.inf,       0,   -np.inf,      0]  # a0 > 0, -0.1 < b0
+            upper_bounds = [np.inf, +np.inf,  np.inf,   +np.inf, np.inf]  # b0 < 0.1, rest unbounded
+            
+            selected_constraints = [SVI000_con_u]
 
         elif interp==INTERP_SVI001:
             thefunction = non_linear_SVI001
             # Initial guess for the parameters
-            # non_linear_SVI000(x, a0, a1, a2, a3, b0, b1):
-            initial_guess = [np.mean(y)**2, 1, 1, 0, 0, 1]
-            # return np.sqrt(a0 + a1 * (x-b0) + a2 * np.sqrt(b1 + (x-b0)**2) - a2 * np.sqrt(b1))
+            # return np.sqrt(a0 + a1 * (x-b0) + a2 * np.sqrt(b1 + (x-b0)**2) - a2 * np.sqrt(b1+b0**2) + a3 * np.arctan(x-b0))
+            #               [a0,           a1,  a2,  a3,   b0, b1]
+            initial_guess = [np.mean(y)**2, 1,   1,   0,    0,  1]
 
             # Define bounds: (lower_bounds, upper_bounds)
-            lower_bounds = [0     , -np.inf, -np.inf, -np.inf, -0.1, 0]  # a0 > 0, -0.1 < b0
-            upper_bounds = [np.inf,  np.inf,  np.inf,  np.inf,  0.1,  np.inf]  # b0 < 0.1, rest unbounded
+            lower_bounds = [0     , -np.inf,       0, -np.inf, -np.inf,       0]  # a0 > 0, -0.1 < b0
+            upper_bounds = [np.inf,  np.inf,  np.inf,  np.inf, +np.inf,  np.inf]  # b0 < 0.1, rest unbounded
 
             
         elif interp==INTERP_SVI002:
             thefunction = non_linear_SVI002
             # Initial guess for the parameters
             # non_linear_SVI000(x, a0, a1, a2, a3, b0, b1):
-            initial_guess = [np.mean(y)**2, 1, 1, 0, 0, 1, 1]
-            # return np.sqrt(a0 + a1 * (x-b0) + a2 * np.sqrt(b1 + (x-b0)**2) - a2 * np.sqrt(b1))
+            #               [a0,            a1,  a2, a3,   b0, b1, b2]
+            initial_guess = [np.min(y)**2,  1,  0.1,  0,  0.1,  1,  1]
+            # return np.sqrt(a0           + a1 * (x-b0) + a2 * np.sqrt(b1 + (x-b0)**2) - a2 * np.sqrt(b1)) + a3 * np.arctan(b2*(x-b0))
 
             # Define bounds: (lower_bounds, upper_bounds)
-            lower_bounds = [0     , -np.inf, -np.inf, -np.inf, -0.1, 0,       -np.inf]  # a0 > 0, -0.1 < b0
-            upper_bounds = [np.inf,  np.inf,  np.inf,  np.inf,  0.1,  np.inf,  np.inf]  # b0 < 0.1, rest unbounded
+            lower_bounds = [0     , -np.inf,       0, -np.inf, -np.inf,       0, -np.inf]  # a0 > 0, -0.1 < b0
+            upper_bounds = [np.inf,  np.inf,  np.inf,  np.inf, +np.inf,  np.inf,  np.inf]  # b0 < 0.1, rest unbounded
 
-        # Fit the curve
+
+        elif interp==INTERP_SVI102:
+            thefunction = non_linear_SVI002
+            # Initial guess for the parameters
+            # non_linear_SVI000(x, a0, a1, a2, a3, b0, b1):
+            #               [a0,            a1,  a2, a3,   b0, b1, b2]
+            initial_guess = [np.min(y)**2,  1,  0.1,  0,  0.1,  1,  1]
+            # return np.sqrt(a0           + a1 * (x-b0) + a2 * np.sqrt(b1 + (x-b0)**2) - a2 * np.sqrt(b1)) + a3 * np.arctan(b2*(x-b0))
+
+            # Define bounds: (lower_bounds, upper_bounds)
+            lower_bounds = [0     , -np.inf,       0, -np.inf, -np.inf,       0, -np.inf]  # a0 > 0, -0.1 < b0
+            upper_bounds = [np.inf,  np.inf,  np.inf,  np.inf, +np.inf,  np.inf,  np.inf]  # b0 < 0.1, rest unbounded
+
+            selected_constraints = [SVI002_con_u]
+
+        # constraints = format_constraints(selected_constraints)
+
         params = least_squares(residuals, initial_guess, args=(x, y**2, thefunction), bounds=(lower_bounds, upper_bounds), method='trf').x
-        
+        if len(weights) > 0 or len(selected_constraints) > 0:
+            # params = np.array([0.22, -.03, 0.30, -0.63, 0.73])
+            params = least_squares(residuals, params,        args=(x, y**2, thefunction, weights, selected_constraints), bounds=(lower_bounds, upper_bounds), method='trf').x
+
         # Predict new values
         newy = np.sqrt(thefunction(newx, *params))
+
+        if abs(params[1])>params[2]:
+            pause = 1
+
+        print(params)
+
+        # initresid = residuals(params, x, y**2, thefunction)
+
+        # # Fit the curve
+        # if selected_constraints:
+        #     params = least_squares(residuals, params, args=(x, y**2, thefunction, weights, selected_constraints), bounds=(lower_bounds, upper_bounds), method='trf').x
+        # else:
+        #     params = least_squares(residuals, params, args=(x, y**2, thefunction, weights), bounds=(lower_bounds, upper_bounds), method='trf').x
+
+        # secndresid = residuals(params, x, y**2, thefunction)
+
+        # print(params)
+
+        # if len(weights)>0 or len(selected_constraints)>0:
+        #     # Predict new values
+        #     print('Residuals:', np.sum(initresid**2), np.sum(secndresid**2))
+
 
     elif interp==INTERP_3D_M2VOL:
         X = np.ones((len(x),6))
