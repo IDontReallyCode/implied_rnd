@@ -69,10 +69,10 @@ INTERP_SVI102 = 2142      # Gatheral SVI model + arctan(b2*x) for an asymetric/d
 INTERP_3D_M2VOL = 3002  # 3D polynomial of order 2 on vol
 INTERP_3D_M2VAR = 3004  # 3D polynomial of order 2 on variance
 
-INTERP_3D_SVI00 = 3100  # 3D SVI +t + m*t + t**2
-INTERP_3D_SVI01 = 3101  # 3D SVI +t + m*t + time-to-maturity slope
-
 INTERP_3D_FGVGG = 3200  # Francois, Galarneau-Vincent, Gauthier, & Godin 2022 on IVolS
+
+INTERP_3D_SVI00 = 4100  # 3D SVI +t + m*t + t**2
+INTERP_3D_SVI01 = 4101  # 3D SVI +t + m*t + time-to-maturity slope
 
 
 EXTRAP_LINEAR = 10       # works only for METHOD_STDR_EXTRAPIV
@@ -569,16 +569,16 @@ def _interpolate(interp: int, x: np.ndarray, y: np.ndarray, newx: np.ndarray, we
 
             interpfunction = non_linear_SVI13D
 
-            # Fit the curve
-            params = least_squares(residuals, initial_guess, args=(x, y**2, non_linear_SVI13D), bounds=(lower_bounds, upper_bounds), method='trf').x
+            # # Fit the curve
+            # params = least_squares(residuals, initial_guess, args=(x, y**2, non_linear_SVI13D), bounds=(lower_bounds, upper_bounds), method='trf').x
             
-            # Predict new values
-            newy2 = non_linear_SVI13D(newx, *params)
-            if np.any(newy2<0):
-                # print('Negative Variance')
-                newy2[newy2<0] = 0
+            # # Predict new values
+            # newy2 = non_linear_SVI13D(newx, *params)
+            # if np.any(newy2<0):
+            #     # print('Negative Variance')
+            #     newy2[newy2<0] = 0
 
-            newy = np.sqrt(newy2)
+            # newy = np.sqrt(newy2)
 
 
         # Fit the curve

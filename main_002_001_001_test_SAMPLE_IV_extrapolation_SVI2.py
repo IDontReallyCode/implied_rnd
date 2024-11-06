@@ -21,13 +21,14 @@ Thus, for now, the program will use the closest maturity to 1-months horizon (30
 
 def main():
     # Set the seed for random number generation
-    random.seed(357951)
+    # random.seed(357951)
+    SEED = 357951
 
     directory = "E:/CBOE/ipc_per_tick"
     N = 10  # Number of dates to select
 
     # selected_file = 'SPX.ipc'
-    ticker = 'AMZN'
+    ticker = 'GME'
     selected_file = f'{ticker}.ipc'
     # selected_file = 'AMZN.ipc'
     # selected_file = 'ROKU.ipc'
@@ -41,7 +42,7 @@ def main():
     df = df.with_columns(pl.col('quote_datetime').cast(pl.Date).alias('quote_date'))
     
     # Pick N random dates from the quote_datetime column
-    random_dates = df['quote_date'].unique().sample(N).to_list()
+    random_dates = df['quote_date'].unique().sample(N, seed=SEED).to_list()
 
     # import datetime
     # random_dates = [datetime.date(2019, 12, 31)]
@@ -87,18 +88,18 @@ def main():
         plt.scatter(this_pf['tslm'], this_pf['implied_volatility'], s=10)
 
         # V_hat_poly3 = rnd.getfit(this_pf['tslm'].to_numpy(), this_pf['implied_volatility'].to_numpy(), rnd.INTERP_POLYM3)
-        V_hat_nlin0 = rnd.getfit(this_pf['tslm'].to_numpy(), this_pf['implied_volatility'].to_numpy(), rnd.INTERP_SVI000)
-        V_hat_nlin1 = rnd.getfit(this_pf['tslm'].to_numpy(), this_pf['implied_volatility'].to_numpy(), rnd.INTERP_SVI002)
+        # V_hat_nlin0 = rnd.getfit(this_pf['tslm'].to_numpy(), this_pf['implied_volatility'].to_numpy(), rnd.INTERP_SVI100)
+        # V_hat_nlin1 = rnd.getfit(this_pf['tslm'].to_numpy(), this_pf['implied_volatility'].to_numpy(), rnd.INTERP_SVI102)
 
         # Now, I want to extend the domain in tslm by 25% on each side and use N points
         N = 100
-        tslm_min = this_pf['tslm'].min()*1.25
-        tslm_max = this_pf['tslm'].max()*1.25
+        tslm_min = this_pf['tslm'].min()*2.5
+        tslm_max = this_pf['tslm'].max()*2.5
         tslm_range = tslm_max - tslm_min
         tslm_new = np.linspace(tslm_min, tslm_max, N)
 
-        V_hat_extr0 = rnd.getfitextrapolated(this_pf['tslm'].to_numpy(), this_pf['implied_volatility'].to_numpy(), tslm_new, rnd.INTERP_SVI000)
-        V_hat_extr1 = rnd.getfitextrapolated(this_pf['tslm'].to_numpy(), this_pf['implied_volatility'].to_numpy(), tslm_new, rnd.INTERP_SVI002)
+        V_hat_extr0 = rnd.getfitextrapolated(this_pf['tslm'].to_numpy(), this_pf['implied_volatility'].to_numpy(), tslm_new, rnd.INTERP_SVI100)
+        V_hat_extr1 = rnd.getfitextrapolated(this_pf['tslm'].to_numpy(), this_pf['implied_volatility'].to_numpy(), tslm_new, rnd.INTERP_SVI102)
 
 
         # plt.scatter(this_pf['tslm'], V_hat_poly3, s=10)

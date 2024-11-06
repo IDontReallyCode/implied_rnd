@@ -42,13 +42,13 @@ def getRMSE(data)->dict:
 
 def main():
     # Set the seed for random number generation
-    random.seed(35718)
+    SEED=35718
 
     directory = "E:/CBOE/ipc_per_tick"
     N = 1000  # Number of dates to select
 
     # selected_file = 'SPX.ipc'
-    ticker = 'QQQ'
+    ticker = 'F'
     selected_file = f'{ticker}.ipc'
     # selected_file = 'AMZN.ipc'
     # selected_file = 'ROKU.ipc'
@@ -63,7 +63,7 @@ def main():
     df = df.drop(['dte_diff', 'root', 'open', 'high', 'low', 'close', 'bid_size', 'ask_size', 'delta', 'gamma', 'theta', 'vega', 'rho', 'eod', 'in1yearrange'])
         
     # Pick N random dates from the quote_datetime column
-    random_dates = df['quote_date'].unique().sample(N, seed=357951).to_list()
+    random_dates = df['quote_date'].unique().sample(N, seed=SEED).to_list()
 
     # import datetime
     # random_dates = [datetime.date(2019, 12, 31)]
@@ -77,7 +77,6 @@ def main():
 
     # Initialize a dictionary to store the data for parallel processing
     M2VOL_list = []
-    M2VAR_list = []
     FGVGG_list = []
     SVI01_list = []
 
@@ -137,7 +136,7 @@ def main():
 
         # collect the data in the dict
         M2VOL_list.append({'x': x, 'iv': iv, 'model': rnd.INTERP_3D_M2VOL})
-        M2VAR_list.append({'x': x, 'iv': iv, 'model': rnd.INTERP_3D_M2VAR})
+        # M2VAR_list.append({'x': x, 'iv': iv, 'model': rnd.INTERP_3D_M2VAR})
         FGVGG_list.append({'x': x, 'iv': iv, 'model': rnd.INTERP_3D_FGVGG})
         SVI01_list.append({'x': x, 'iv': iv, 'model': rnd.INTERP_3D_SVI01})
 
@@ -173,12 +172,13 @@ def main():
     # fitsmanual = []
     # for day in M2VAR_list:
     #     fitsmanual.append(getRMSE(day))
+    # test = getRMSE(SVI01_list[0])
 
     # start a pool for prarallel processing
     with mp.Pool(10) as p:
         # Run the parallel processing
         fits_M2VOL = p.map(getRMSE, M2VOL_list)
-        fits_M2VAR = p.map(getRMSE, M2VAR_list)
+        # fits_M2VAR = p.map(getRMSE, M2VAR_list)
         fits_FGVGG = p.map(getRMSE, FGVGG_list)
         fits_SVI01 = p.map(getRMSE, SVI01_list)
 
@@ -188,7 +188,7 @@ def main():
 
     # regroupd the results into a results dictionary
     results['M2vol'] = fits_M2VOL
-    results['M2var'] = fits_M2VAR
+    # results['M2var'] = fits_M2VAR
     results['FGVGG'] = fits_FGVGG
     results['SVI01'] = fits_SVI01
 
