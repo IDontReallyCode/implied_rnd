@@ -439,8 +439,8 @@ def _interpolate(interp: int, x: np.ndarray, y: np.ndarray, newx: np.ndarray, we
             # return np.sqrt(a0 + a1 * (x-b0) + a2 * np.sqrt(b1 + (x-b0)**2) - a2 * np.sqrt(b1))
 
             # Define bounds: (lower_bounds, upper_bounds)
-            lower_bounds = [0     , -np.inf,       0,   -np.inf,      0]  # a0 > 0, -0.1 < b0
-            upper_bounds = [np.inf, +np.inf,  np.inf,   +np.inf, np.inf]  # b0 < 0.1, rest unbounded
+            lower_bounds = [-np.inf, -np.inf,       0,   -np.inf,      0]  # a0 > 0, -0.1 < b0
+            upper_bounds = [+np.inf, +np.inf,  np.inf,   +np.inf, np.inf]  # b0 < 0.1, rest unbounded
             
             selected_constraints = [SVI000_con_u]
 
@@ -486,8 +486,11 @@ def _interpolate(interp: int, x: np.ndarray, y: np.ndarray, newx: np.ndarray, we
         params = least_squares(residuals, initial_guess, args=(x, y**2, thefunction), bounds=(lower_bounds, upper_bounds), method='trf').x
         if len(weights) > 0 or len(selected_constraints) > 0:
             # params = np.array([0.22, -.03, 0.30, -0.63, 0.73])
-            res = residuals(params, x, y**2, thefunction, weights, selected_constraints)
+            resbeforeconstraints = residuals(params, x, y**2, thefunction, weights, selected_constraints)
             params = least_squares(residuals, params,        args=(x, y**2, thefunction, weights, selected_constraints), bounds=(lower_bounds, upper_bounds), method='trf').x
+            resafterconstraints = residuals(params, x, y**2, thefunction, weights, selected_constraints)
+            params = least_squares(residuals, initial_guess,        args=(x, y**2, thefunction, weights, selected_constraints), bounds=(lower_bounds, upper_bounds), method='trf').x
+            resafterconstraintsini = residuals(params, x, y**2, thefunction, weights, selected_constraints)
             penalty = selected_constraints[0](*params)
             if penalty>0:
                 pause = 1
