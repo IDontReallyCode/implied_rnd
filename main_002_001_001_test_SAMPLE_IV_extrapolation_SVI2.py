@@ -99,7 +99,7 @@ def main():
         tslm_new = np.linspace(tslm_min, tslm_max, N)
 
         V_hat_extr0 = rnd.getfitextrapolated(this_pf['tslm'].to_numpy(), this_pf['implied_volatility'].to_numpy(), tslm_new, rnd.INTERP_SVI000)
-        V_hat_extr1 = rnd.getfitextrapolated(this_pf['tslm'].to_numpy(), this_pf['implied_volatility'].to_numpy(), tslm_new, rnd.INTERP_SVI110)
+        V_hat_extr1 = rnd.getfitextrapolated(this_pf['tslm'].to_numpy(), this_pf['implied_volatility'].to_numpy(), tslm_new, rnd.INTERP_SVI100)
 
 
         # plt.scatter(this_pf['tslm'], V_hat_poly3, s=10)
@@ -107,7 +107,7 @@ def main():
         # plt.scatter(this_pf['tslm'], V_hat_nlin1, s=10)
         plt.plot(tslm_new, V_hat_extr0, alpha=0.5)
         plt.plot(tslm_new, V_hat_extr1, alpha=0.5)
-        plt.legend(['data', 'INTERP_SVI000', 'INTERP_SVI110'])
+        plt.legend(['data', 'INTERP_SVI000', 'INTERP_SVI100'])
         plt.title(f'{ticker} - {one_date}')
         plt.show()
 

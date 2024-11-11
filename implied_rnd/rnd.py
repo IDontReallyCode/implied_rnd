@@ -150,12 +150,15 @@ def non_linear_SVI000(x, a0, a1, a2, b0, b1):
 
 
 def SVI000_con_u(a0, a1, a2, b0, b1):
-    penalty = max(abs(a1) - a2,0)
-    # penalty = max(penalty, -a0)
-    # penalty = max(penalty, -a2)
-    # penalty = max(penalty, a2*np.sqrt(b1)-a0)
+    # penalty = min(1-abs(a1/a2),0)  # a1/a2 should be less than 1 in absolute value
+    # in the next line, impose a positve penalty if a1-a2 is positive
+    penalty = max(a1-a2, 0)
     if penalty>0:
-        penalty = penalty*999999
+        penalty = 5*(1+penalty)**2
+        return penalty
+    penalty = min( a0 + a1 * np.sqrt(b1) * np.sqrt(1 - (a1/a2)**2), 0 )  # a0 + a1 * np.sqrt(b1) * np.sqrt(1 - (a1/a2)**2) should be greater than 0
+    if penalty>0:
+        penalty = 5*(1+penalty)**2
     return penalty
 
 
@@ -483,6 +486,7 @@ def _interpolate(interp: int, x: np.ndarray, y: np.ndarray, newx: np.ndarray, we
         params = least_squares(residuals, initial_guess, args=(x, y**2, thefunction), bounds=(lower_bounds, upper_bounds), method='trf').x
         if len(weights) > 0 or len(selected_constraints) > 0:
             # params = np.array([0.22, -.03, 0.30, -0.63, 0.73])
+            res = residuals(params, x, y**2, thefunction, weights, selected_constraints)
             params = least_squares(residuals, params,        args=(x, y**2, thefunction, weights, selected_constraints), bounds=(lower_bounds, upper_bounds), method='trf').x
             penalty = selected_constraints[0](*params)
             if penalty>0:
