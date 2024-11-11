@@ -18,6 +18,7 @@ from scipy.optimize import curve_fit
 from scipy.optimize import least_squares
 
 import matplotlib.pyplot as plt
+# import warnings
 
 METHOD_STDR_EXTRAPIV = 0    # Standard support with extrapolation of IV
 METHOD_STDR_EXTRADEN = 1    # Standard support with extrapolation of density
@@ -62,6 +63,7 @@ INTERP_NONLI1 = 2000      # non-linear hyperbolla + x for asymetry + arctan(x) f
 
 INTERP_SVI000 = 2040      # Gatheral SVI model
 INTERP_SVI100 = 2140      # Gatheral SVI model constrained to have a negative slope far left
+INTERP_SVI110 = 2141      # Gatheral SVI model constrained to have a negative slope far left Better starting values
 INTERP_SVI001 = 2041      # Gatheral SVI model + arctan(x) for an asymetric/distortion feature
 INTERP_SVI002 = 2042      # Gatheral SVI model + arctan(b2*x) for an asymetric/distortion feature
 INTERP_SVI102 = 2142      # Gatheral SVI model + arctan(b2*x) for an asymetric/distortion feature
@@ -82,6 +84,7 @@ EXTRAP_ASYMPT = 30       # works only for METHOD_TLSM_EXTRAPIV
 
 DENSITY_RANGE_DEFAULT = 0
 DENSITY_RANGE_EXTENDD = 1
+DENSITY_RANGE_KEPASIS = 2
 
 
 
@@ -142,11 +145,15 @@ def non_linear_func31(x, a0, a1, a2, b0):
 
 def non_linear_SVI000(x, a0, a1, a2, b0, b1):
     # return a0 + a1 * np.sqrt(b0 + b1 * ((x+b3) ** 2)) + a2 * x + a3 * np.arctan(b2 * (x+b4))
-    return (a0 + a1 * (x-b0) + a2 * np.sqrt(b1 + (x-b0)**2) - a2 * np.sqrt(b1+b0**2))
+    # return (a0 + a1 * (x-b0) + a2 * np.sqrt(b1 + (x-b0)**2) - a2 * np.sqrt(b1))
+    return (a0 + a1 * (x-b0) + a2 * np.sqrt(b1 + (x-b0)**2))
 
 
 def SVI000_con_u(a0, a1, a2, b0, b1):
     penalty = max(abs(a1) - a2,0)
+    # penalty = max(penalty, -a0)
+    # penalty = max(penalty, -a2)
+    # penalty = max(penalty, a2*np.sqrt(b1)-a0)
     if penalty>0:
         penalty = penalty*999999
     return penalty
@@ -154,6 +161,7 @@ def SVI000_con_u(a0, a1, a2, b0, b1):
 
 def SVI002_con_u(a0, a1, a2, a3, b0, b1, b2):
     penalty = max(abs(a1) - a2,0)
+    penalty = max(penalty, -a0)
     if penalty>0:
         penalty = penalty*999999
     return penalty
@@ -161,7 +169,7 @@ def SVI002_con_u(a0, a1, a2, a3, b0, b1, b2):
 
 def non_linear_SVI03D(x, a0, a1, a2, a3, a4, a5, b0, b1):
     # return a0 + a1 * np.sqrt(b0 + b1 * ((x+b3) ** 2)) + a2 * x + a3 * np.arctan(b2 * (x+b4))
-    return (a0 + a1 * (x[:,0]-b0) + a2 * np.sqrt(b1 + (x[:,0]-b0)**2) - a2 * np.sqrt(b1+b0**2)) + a3*x[:,1] + a4*x[:,1]*x[:,0] + a5*x[:,1]**2
+    return (a0 + a1 * (x[:,0]-b0) + a2 * np.sqrt(b1 + (x[:,0]-b0)**2) - a2 * np.sqrt(b1)) + a3*x[:,1] + a4*x[:,1]*x[:,0] + a5*x[:,1]**2
 
 
 def non_linear_SVI13D(x, a0, a1, a2, a3, a4, a5, b0, b1):
@@ -172,12 +180,12 @@ def non_linear_SVI13D(x, a0, a1, a2, a3, a4, a5, b0, b1):
 
 def non_linear_SVI001(x, a0, a1, a2, a3, b0, b1):
     # return a0 + a1 * np.sqrt(b0 + b1 * ((x+b3) ** 2)) + a2 * x + a3 * np.arctan(b2 * (x+b4))
-    return (a0 + a1 * (x-b0) + a2 * np.sqrt(b1 + (x-b0)**2) - a2 * np.sqrt(b1+b0**2) + a3 * np.arctan(x-b0))
+    return (a0 + a1 * (x-b0) + a2 * np.sqrt(b1 + (x-b0)**2) - a2 * np.sqrt(b1) + a3 * np.arctan(x-b0))
 
 
 def non_linear_SVI002(x, a0, a1, a2, a3, b0, b1, b2):
     # return a0 + a1 * np.sqrt(b0 + b1 * ((x+b3) ** 2)) + a2 * x + a3 * np.arctan(b2 * (x+b4))
-    return (a0 + a1 * (x-b0) + a2 * np.sqrt(b1 + (x-b0)**2) - a2 * np.sqrt(b1+b0**2) + a3 * np.arctan(b2*(x-b0)))
+    return (a0 + a1 * (x-b0) + a2 * np.sqrt(b1 + (x-b0)**2) - a2 * np.sqrt(b1) + a3 * np.arctan(b2*(x-b0)))
 
 
 def _interpolate(interp: int, x: np.ndarray, y: np.ndarray, newx: np.ndarray, weights: np.array=np.array([])) -> np.ndarray:
@@ -396,7 +404,35 @@ def _interpolate(interp: int, x: np.ndarray, y: np.ndarray, newx: np.ndarray, we
             thefunction = non_linear_SVI000
             # Initial guess for the parameters
             # non_linear_SVI000(x, a0,    a1, a2,   b0, b1):
-            initial_guess = [np.min(y)**2, 1, 0.1, 0.1, 1]
+            initial_guess = [np.min(y)**2, 0, 1, 0.1, 1]
+            # return np.sqrt(a0 + a1 * (x-b0) + a2 * np.sqrt(b1 + (x-b0)**2) - a2 * np.sqrt(b1))
+
+            # Define bounds: (lower_bounds, upper_bounds)
+            lower_bounds = [0     , -np.inf,       0,   -np.inf,      0]  # a0 > 0, -0.1 < b0
+            upper_bounds = [np.inf, +np.inf,  np.inf,   +np.inf, np.inf]  # b0 < 0.1, rest unbounded
+            
+            selected_constraints = [SVI000_con_u]
+
+        elif interp==INTERP_SVI110:
+            thefunction = non_linear_SVI000
+            # Initial guess for the parameters
+            # non_linear_SVI000(x, a0,    a1, a2,   b0, b1):
+
+            # find where y is at the minimum
+            minindex = np.argmin(y)
+            # find the value of x at the minimum
+            minx = x[minindex]
+            # I want to sort x and y according to x
+            xsorted = x[np.argsort(x)]
+            ysorted = y[np.argsort(x)]
+            # find the slope of the curve at the far left and call it L
+            L = min((ysorted[1]-ysorted[0])/(xsorted[1]-xsorted[0]),0)
+            # find the slope of the curve at the far right and call it R
+            R = max((ysorted[-1]-ysorted[-2])/(xsorted[-1]-xsorted[-2]),0)
+            a2 = (R-L)/2
+            a1 = a2 + L
+
+            initial_guess = [np.min(y)**2, a1, a2, minx, 0.05]
             # return np.sqrt(a0 + a1 * (x-b0) + a2 * np.sqrt(b1 + (x-b0)**2) - a2 * np.sqrt(b1))
 
             # Define bounds: (lower_bounds, upper_bounds)
@@ -415,7 +451,6 @@ def _interpolate(interp: int, x: np.ndarray, y: np.ndarray, newx: np.ndarray, we
             # Define bounds: (lower_bounds, upper_bounds)
             lower_bounds = [0     , -np.inf,       0, -np.inf, -np.inf,       0]  # a0 > 0, -0.1 < b0
             upper_bounds = [np.inf,  np.inf,  np.inf,  np.inf, +np.inf,  np.inf]  # b0 < 0.1, rest unbounded
-
             
         elif interp==INTERP_SVI002:
             thefunction = non_linear_SVI002
@@ -428,7 +463,6 @@ def _interpolate(interp: int, x: np.ndarray, y: np.ndarray, newx: np.ndarray, we
             # Define bounds: (lower_bounds, upper_bounds)
             lower_bounds = [0     , -np.inf,       0, -np.inf, -np.inf,       0, -np.inf]  # a0 > 0, -0.1 < b0
             upper_bounds = [np.inf,  np.inf,  np.inf,  np.inf, +np.inf,  np.inf,  np.inf]  # b0 < 0.1, rest unbounded
-
 
         elif interp==INTERP_SVI102:
             thefunction = non_linear_SVI002
@@ -450,8 +484,16 @@ def _interpolate(interp: int, x: np.ndarray, y: np.ndarray, newx: np.ndarray, we
         if len(weights) > 0 or len(selected_constraints) > 0:
             # params = np.array([0.22, -.03, 0.30, -0.63, 0.73])
             params = least_squares(residuals, params,        args=(x, y**2, thefunction, weights, selected_constraints), bounds=(lower_bounds, upper_bounds), method='trf').x
+            penalty = selected_constraints[0](*params)
+            if penalty>0:
+                pause = 1
+            pass
 
         # Predict new values
+        newvar = thefunction(newx, *params)
+        if np.any(newvar<0):
+            # print('Negative Variance')
+            newvar[newvar<0] = 0
         newy = np.sqrt(thefunction(newx, *params))
 
         # if abs(params[1])>params[2]:
@@ -618,7 +660,7 @@ def getfitextrapolated(x: np.ndarray, y: np.ndarray, newx: np.ndarray, interp: i
 
 
 def getrnd(K: np.ndarray, V: np.ndarray, S: float, rf: float, t: float, interp: int=INTERP_POLYM3, method: int=METHOD_STDR_EXTRAPIV, extrap: int=EXTRAP_LINEAR, 
-           densityrange: Union[int, List[int]]=DENSITY_RANGE_DEFAULT, nbpoints:int = 10000) -> tuple:
+           densityrange: Union[int, List[int]]=DENSITY_RANGE_DEFAULT, nbpoints:int = 10000, fittingweights:np.ndarray=np.array([])) -> tuple:
     """
     For now, the function only deals with one maturity.
     Parameters:
@@ -659,6 +701,8 @@ def getrnd(K: np.ndarray, V: np.ndarray, S: float, rf: float, t: float, interp: 
         elif densityrange == DENSITY_RANGE_EXTENDD:
             localrange = np.array([0.05, max(K)*2])
         # Add more cases as needed
+        elif densityrange == DENSITY_RANGE_KEPASIS:
+            localrange = np.array([min(K), max(K)])
         else:
             raise ValueError("Invalid densityrange integer value")
     elif isinstance(densityrange, list) and len(densityrange) == 2:
@@ -680,7 +724,7 @@ def getrnd(K: np.ndarray, V: np.ndarray, S: float, rf: float, t: float, interp: 
 
     if method==METHOD_STDR_EXTRAPIV:
         # interpolate first
-        outputy[interpmask] = _interpolate(interp, K, V, outputx[interpmask])
+        outputy[interpmask] = _interpolate(interp, K, V, outputx[interpmask], fittingweights)
 
         # Now extrapolate as a constant
         outputy[extlftmask] = outputy[interpmask][0]
@@ -713,7 +757,7 @@ def getrnd(K: np.ndarray, V: np.ndarray, S: float, rf: float, t: float, interp: 
         
     elif method==METHOD_STDR_EXTRADEN:
         # interpolate first
-        outputy[interpmask] = _interpolate(interp, K, V, outputx[interpmask])
+        outputy[interpmask] = _interpolate(interp, K, V, outputx[interpmask], fittingweights)
         # now get Black-Scholes-Merton put prices.
         p = bls('p', S=S, K=outputx[interpmask], t=t, r=rf, sigma=outputy[interpmask], return_as='np')
         # plt.plot(outputx[interpmask], p[interpmask]); plt.show()
@@ -724,13 +768,14 @@ def getrnd(K: np.ndarray, V: np.ndarray, S: float, rf: float, t: float, interp: 
         # Generalized Pareto and Generalized Beta 2.
         if extrap==EXTRAP_GPARTO:
             # We need to have a simple function that will optimize the different parameters of the Generalized Pareto density to match 2 or 3 points of the current density
-            thetaleft = opt._fittail(outputx[interpmask][2]-outputx[interpmask][0:2][::-1], outputf[interpmask][0:2][::-1], opt.evalgenpareto)
-            outputf[extlftmask] = (genpareto.pdf(outputx[interpmask][2]-outputx[extlftmask][::-1], thetaleft[0], loc=thetaleft[1]))[::-1]
+            thetaleft = opt._fittail(outputx[interpmask][3]-outputx[interpmask][0:3][::-1], outputf[interpmask][0:3][::-1], opt.evalgenpareto)
+            outputf[extlftmask] = (genpareto.pdf(outputx[interpmask][3]-outputx[extlftmask][::-1], c=thetaleft[0], loc=thetaleft[1], scale=thetaleft[2]))
             thetarigt = opt._fittail(outputx[interpmask][-3:-1], outputf[interpmask][-3:-1], opt.evalgenpareto)
             outputf[extrgtmask] = genpareto.pdf(outputx[extrgtmask], thetarigt[0], loc=thetarigt[1])
             # plt.plot(outputx[interpmask], outputf[interpmask])
-            # plt.plot(outputx[extrgtmask], outputf[extrgtmask])
-            # plt.plot(outputx[extlftmask][::-1], outputf[extlftmask]); plt.show()
+            # # plt.plot(outputx[extrgtmask], outputf[extrgtmask])
+            # plt.plot(outputx[extlftmask][::-1], outputf[extlftmask]); 
+            # plt.show()
             
             pass
         elif extrap==EXTRAP_GBETA2:
@@ -756,7 +801,7 @@ def getrnd(K: np.ndarray, V: np.ndarray, S: float, rf: float, t: float, interp: 
         m = np.multiply(1/np.sqrt(t), np.log(S*np.exp(rf*t)/K))
         newm = np.multiply(1/np.sqrt(t), np.log(S*np.exp(rf*t)/outputx))
         # plt.plot(m,V)#; plt.show()
-        outputy = _interpolate(interp, m, V, newm)
+        outputy = _interpolate(interp, m, V, newm, fittingweights)
         # plt.plot(outputx, outputy); plt.show()
         p = bls('p', S=S, K=outputx, t=t, r=rf, sigma=outputy, return_as='np')
         # get convexity

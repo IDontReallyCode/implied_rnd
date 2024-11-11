@@ -28,7 +28,7 @@ def main():
     N = 10  # Number of dates to select
 
     # selected_file = 'SPX.ipc'
-    ticker = 'GME'
+    ticker = 'SPX'
     selected_file = f'{ticker}.ipc'
     # selected_file = 'AMZN.ipc'
     # selected_file = 'ROKU.ipc'
@@ -93,13 +93,13 @@ def main():
 
         # Now, I want to extend the domain in tslm by 25% on each side and use N points
         N = 100
-        tslm_min = this_pf['tslm'].min()*2.5
-        tslm_max = this_pf['tslm'].max()*2.5
+        tslm_min = -5 #this_pf['tslm'].min()*20
+        tslm_max = +2 #this_pf['tslm'].max()*2.5
         tslm_range = tslm_max - tslm_min
         tslm_new = np.linspace(tslm_min, tslm_max, N)
 
-        V_hat_extr0 = rnd.getfitextrapolated(this_pf['tslm'].to_numpy(), this_pf['implied_volatility'].to_numpy(), tslm_new, rnd.INTERP_SVI100)
-        V_hat_extr1 = rnd.getfitextrapolated(this_pf['tslm'].to_numpy(), this_pf['implied_volatility'].to_numpy(), tslm_new, rnd.INTERP_SVI102)
+        V_hat_extr0 = rnd.getfitextrapolated(this_pf['tslm'].to_numpy(), this_pf['implied_volatility'].to_numpy(), tslm_new, rnd.INTERP_SVI000)
+        V_hat_extr1 = rnd.getfitextrapolated(this_pf['tslm'].to_numpy(), this_pf['implied_volatility'].to_numpy(), tslm_new, rnd.INTERP_SVI110)
 
 
         # plt.scatter(this_pf['tslm'], V_hat_poly3, s=10)
@@ -107,9 +107,19 @@ def main():
         # plt.scatter(this_pf['tslm'], V_hat_nlin1, s=10)
         plt.plot(tslm_new, V_hat_extr0, alpha=0.5)
         plt.plot(tslm_new, V_hat_extr1, alpha=0.5)
-        plt.legend(['data', 'INTERP_SVI000', 'INTERP_SVI002'])
+        plt.legend(['data', 'INTERP_SVI000', 'INTERP_SVI110'])
         plt.title(f'{ticker} - {one_date}')
         plt.show()
+
+        # # I want to put this_pf['tslm'], this_pf['implied_volatility']**2 into numpy values called x and y
+        # x = this_pf['tslm'].to_numpy()
+        # y = this_pf['implied_volatility'].to_numpy()**2
+        # # Now I want to save x and y into a file I can easily load up into numpy later
+        # np.save(f'{ticker}_{one_date}_x.npy', x)
+        # np.save(f'{ticker}_{one_date}_y.npy', y)
+        # now if I want to load them up later, I can do:
+        # x = np.load(f'{ticker}_{one_date}_x.npy')
+        # y = np.load(f'{ticker}_{one_date}_y.npy')
 
         pass
 

@@ -5,12 +5,18 @@ import numpy as np
 
 
 def evalgenpareto(theta: np.ndarray, x: np.ndarray, f: np.ndarray):
-    # print(theta)
-    # Create a Generalized Beta 2 distribution object
-    # gbeta2_dist = genpareto(a=theta[0], b=theta[1], p=theta[2])
-    fhat = genpareto.pdf(x,theta[0], loc=theta[1])
-    e2 = np.sum((fhat-f)**2)
-    # print(e2)
+    # theta: Parameters for the Generalized Pareto distribution
+    # x: Data points at which to evaluate the PDF
+    # f: Observed frequencies or densities
+    
+    # Extract shape, location, and scale parameters from theta
+    shape, loc, scale = theta
+    # Calculate the PDF of the Generalized Pareto distribution at the given data points
+    fhat = genpareto.pdf(x, c=shape, loc=loc, scale=scale)
+
+    # Compute the sum of squared errors between the observed and estimated densities
+    e2 = np.sum((fhat - f) ** 2)
+
     return e2
 
 
@@ -23,7 +29,7 @@ def evalgenbeta2(theta: np.ndarray, x: np.ndarray, f: np.ndarray):
 
 
 def _fittail(x: np.ndarray, f: np.ndarray, evaldensity = evalgenpareto):
-    initial_theta = [1.0, 0.0]
+    initial_theta = [0.0, 0.0, 1.0]
     
     # Minimize the function
     result = minimize(evaldensity, initial_theta, method='Nelder-Mead', args=(x, f))

@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 def update_plot(a0, a1, b0, a2, b1):
-    x = np.linspace(-2, 3, 100)
+    x = np.linspace(-40, 1, 100)
     y = a0 + a1 * (x - b0) + a2 * np.sqrt(b1 + (x - b0)**2) - a2 * np.sqrt(b1)
     ax.clear()
     ax.plot(x, y)
@@ -23,12 +23,13 @@ root = tk.Tk()
 root.title("Function Plotter")
 
 # Create sliders
+# [0.17359927, 0.3120681 , 0.31228013, 0.97718667, 0.50308828]
 sliders = [
-    ('a0', 0, 1, 0),
-    ('a1', -4, +4, 0),
-    ('b0', -2, +2, 0),
-    ('a2', 0, +2, 1),
-    ('b1', 0, +1, 1)
+    ('a0', 0, 1, 0.17359927),
+    ('a1', -4, +4, 0.3120681),
+    ('b0', -2, +2, 0.97718667),
+    ('a2', 0, +2, 0.31228013),
+    ('b1', 0, +1, 0.50308828)
 ]
 
 for i, (label, min_val, max_val, init_val) in enumerate(sliders):

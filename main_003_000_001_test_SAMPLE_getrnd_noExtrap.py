@@ -27,7 +27,7 @@ def main():
     N = 10  # Number of dates to select
 
     # selected_file = 'SPX.ipc'
-    ticker = 'SPY'
+    ticker = 'SPX'
     selected_file = f'{ticker}.ipc'
     # selected_file = 'AMZN.ipc'
     # selected_file = 'ROKU.ipc'
@@ -85,9 +85,12 @@ def main():
         S = float(this_pf['active_underlying_price'].to_numpy()[0])
         rf = float(this_pf['rf'].to_numpy()[0])
         t = float(this_pf['dte'].to_numpy()[0] / 365)
+        w = this_pf['open_interest'].to_numpy()
+        w = w / w.sum()
 
-        x0, y0, f0 = rnd.getrnd(K, V, S=S, rf=rf, t=t, interp=rnd.INTERP_POLYM4, densityrange=rnd.DENSITY_RANGE_DEFAULT, method=rnd.METHOD_STDR_EXTRADEN, extrap=rnd.EXTRAP_GPARTO)
-        x2, y2, f2 = rnd.getrnd(K, V, S=S, rf=rf, t=t, interp=rnd.INTERP_SVI000, densityrange=rnd.DENSITY_RANGE_DEFAULT, method=rnd.METHOD_TLSM_EXTRAPIV, extrap=rnd.EXTRAP_ASYMPT)
+
+        x0, y0, f0 = rnd.getrnd(K, V, S=S, rf=rf, t=t, interp=rnd.INTERP_POLYM4, densityrange=rnd.DENSITY_RANGE_KEPASIS, method=rnd.METHOD_STDR_EXTRADEN, extrap=rnd.EXTRAP_GPARTO, fittingweights=w)
+        x2, y2, f2 = rnd.getrnd(K, V, S=S, rf=rf, t=t, interp=rnd.INTERP_SVI000, densityrange=rnd.DENSITY_RANGE_KEPASIS, method=rnd.METHOD_TLSM_EXTRAPIV, extrap=rnd.EXTRAP_ASYMPT)
 
         plt.plot(x0, f0, label="M4 G pareto")
         plt.plot(x2, f2, label="SVI")
