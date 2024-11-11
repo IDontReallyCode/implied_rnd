@@ -97,17 +97,6 @@ def ols_wols(X: np.ndarray, y: np.ndarray, weights: np.ndarray=np.array([])) -> 
     return beta
 
 
-# def constraint_fun(params):
-#     return -confun(params)  # Ensure the constraint is negative
-
-
-# def format_constraints(selected_constraints):
-#     constraints = []
-#     for constraint in selected_constraints:
-#         constraints.append({'type': 'ineq', 'fun': lambda params: -constraint(params)})
-#     return constraints
-
-
 def residuals(params, x, y, model_func, weights=np.array([]), constraints=[]):
     """
     General residuals function for least_squares.
@@ -126,7 +115,7 @@ def residuals(params, x, y, model_func, weights=np.array([]), constraints=[]):
 
     if constraints:
         for constraint in constraints:
-            penalty += (constraint(*params)*1000)**2
+            penalty += constraint(*params)
 
     if penalty>0:
         pause = 1
@@ -146,25 +135,37 @@ def non_linear_func31(x, a0, a1, a2, b0):
 def non_linear_SVI000(x, a0, a1, a2, b0, b1):
     # return a0 + a1 * np.sqrt(b0 + b1 * ((x+b3) ** 2)) + a2 * x + a3 * np.arctan(b2 * (x+b4))
     # return (a0 + a1 * (x-b0) + a2 * np.sqrt(b1 + (x-b0)**2) - a2 * np.sqrt(b1))
-    return (a0 + a1 * (x-b0) + a2 * np.sqrt(b1 + (x-b0)**2))
+    # return (a0 + a1 * (x-b0) + a2 * np.sqrt(b1 + (x-b0)**2))
+    
+    # Now, use the original SVI model
+    return a0 + a2 * (a1 * (x - b0) + np.sqrt(b1**2 + (x - b0) ** 2))
 
 
 def SVI000_con_u(a0, a1, a2, b0, b1):
-    # penalty = min(1-abs(a1/a2),0)  # a1/a2 should be less than 1 in absolute value
-    # in the next line, impose a positve penalty if a1-a2 is positive
-    penalty = max(a1-a2, 0)
-    if penalty>0:
-        penalty = 5*(1+penalty)**2
-        return penalty
-    penalty = min( a0 + a1 * np.sqrt(b1) * np.sqrt(1 - (a1/a2)**2), 0 )  # a0 + a1 * np.sqrt(b1) * np.sqrt(1 - (a1/a2)**2) should be greater than 0
+    # The basic constrainst are handled by the bounds on the parameters
+    # a2 > 0
+    # b1 > 0
+    # -1 < a1 < 1
+
+    # Next, we need a0 + a2*b1*sqrt*1+a1**2 > =
+    condition = a0 + a2*b1*np.sqrt(1-a1**2)
+    penalty = max(0, -condition)
+
     if penalty>0:
         penalty = 5*(1+penalty)**2
     return penalty
 
 
 def SVI002_con_u(a0, a1, a2, a3, b0, b1, b2):
-    penalty = max(abs(a1) - a2,0)
-    penalty = max(penalty, -a0)
+    # The basic constrainst are handled by the bounds on the parameters
+    # a2 > 0
+    # b1 > 0
+    # -1 < a1 < 1
+
+    # Next, we need a0 + a2*b1*sqrt*1+a1**2 > =
+    condition = a0 + a2*b1*np.sqrt(1+a1**2)
+    penalty = max(0, -condition)
+
     if penalty>0:
         penalty = penalty*999999
     return penalty
@@ -183,12 +184,14 @@ def non_linear_SVI13D(x, a0, a1, a2, a3, a4, a5, b0, b1):
 
 def non_linear_SVI001(x, a0, a1, a2, a3, b0, b1):
     # return a0 + a1 * np.sqrt(b0 + b1 * ((x+b3) ** 2)) + a2 * x + a3 * np.arctan(b2 * (x+b4))
-    return (a0 + a1 * (x-b0) + a2 * np.sqrt(b1 + (x-b0)**2) - a2 * np.sqrt(b1) + a3 * np.arctan(x-b0))
+    base  = non_linear_SVI000(x, a0, a1, a2, b0, b1)
+    return (base + a3 * np.arctan(x-b0))
 
 
 def non_linear_SVI002(x, a0, a1, a2, a3, b0, b1, b2):
     # return a0 + a1 * np.sqrt(b0 + b1 * ((x+b3) ** 2)) + a2 * x + a3 * np.arctan(b2 * (x+b4))
-    return (a0 + a1 * (x-b0) + a2 * np.sqrt(b1 + (x-b0)**2) - a2 * np.sqrt(b1) + a3 * np.arctan(b2*(x-b0)))
+    base  = non_linear_SVI000(x, a0, a1, a2, b0, b1)
+    return (base + a3 * np.arctan(b2*(x-b0)))
 
 
 def _interpolate(interp: int, x: np.ndarray, y: np.ndarray, newx: np.ndarray, weights: np.array=np.array([])) -> np.ndarray:
@@ -394,25 +397,25 @@ def _interpolate(interp: int, x: np.ndarray, y: np.ndarray, newx: np.ndarray, we
             thefunction = non_linear_SVI000
             # Initial guess for the parameters
             # non_linear_SVI000(x, a0, a1, a2, b0, b1):
-            initial_guess = [np.min(y)**2, 1, 0.1, 0.1, 1]
+            initial_guess = [np.min(y)**2, 0, 0.1, -0.1, 1]
             # return np.sqrt(a0 + a1 * (x-b0) + a2 * np.sqrt(b1 + (x-b0)**2) - a2 * np.sqrt(b1))
 
             # Define bounds: (lower_bounds, upper_bounds)
             #               cte,    slope  hypercurve  location,  curve
-            lower_bounds = [0     , -np.inf,       0,   -np.inf,      0]  # a0 > 0, -0.1 < b0
-            upper_bounds = [np.inf, +np.inf,  np.inf,   +np.inf, np.inf]  # b0 < 0.1, rest unbounded
+            lower_bounds = [-np.inf, -1,       0,   -np.inf,      0]  # a0 > 0, -0.1 < b0
+            upper_bounds = [+np.inf, +1,  np.inf,   +np.inf, np.inf]  # b0 < 0.1, rest unbounded
 
 
         elif interp==INTERP_SVI100:
             thefunction = non_linear_SVI000
             # Initial guess for the parameters
             # non_linear_SVI000(x, a0,    a1, a2,   b0, b1):
-            initial_guess = [np.min(y)**2, 0, 1, 0.1, 1]
+            initial_guess = [np.min(y)**2, 0, 1, -0.1, 1]
             # return np.sqrt(a0 + a1 * (x-b0) + a2 * np.sqrt(b1 + (x-b0)**2) - a2 * np.sqrt(b1))
 
             # Define bounds: (lower_bounds, upper_bounds)
-            lower_bounds = [0     , -np.inf,       0,   -np.inf,      0]  # a0 > 0, -0.1 < b0
-            upper_bounds = [np.inf, +np.inf,  np.inf,   +np.inf, np.inf]  # b0 < 0.1, rest unbounded
+            lower_bounds = [-np.inf, -1,       0,   -np.inf,      0]  # a0 > 0, -0.1 < b0
+            upper_bounds = [+np.inf, +1,  np.inf,   +np.inf, np.inf]  # b0 < 0.1, rest unbounded
             
             selected_constraints = [SVI000_con_u]
 
@@ -435,12 +438,12 @@ def _interpolate(interp: int, x: np.ndarray, y: np.ndarray, newx: np.ndarray, we
             a2 = (R-L)/2
             a1 = a2 + L
 
-            initial_guess = [np.min(y)**2, a1, a2, minx, 0.05]
+            initial_guess = [np.min(y)**2 - a2*0.01*np.sqrt(1-a2**2), a1, a2, minx, 0.01]
             # return np.sqrt(a0 + a1 * (x-b0) + a2 * np.sqrt(b1 + (x-b0)**2) - a2 * np.sqrt(b1))
 
             # Define bounds: (lower_bounds, upper_bounds)
-            lower_bounds = [-np.inf, -np.inf,       0,   -np.inf,      0]  # a0 > 0, -0.1 < b0
-            upper_bounds = [+np.inf, +np.inf,  np.inf,   +np.inf, np.inf]  # b0 < 0.1, rest unbounded
+            lower_bounds = [-np.inf, -1,       0,   -np.inf,      0]  # a0 > 0, -0.1 < b0
+            upper_bounds = [+np.inf, +1,  np.inf,   +np.inf, np.inf]  # b0 < 0.1, rest unbounded
             
             selected_constraints = [SVI000_con_u]
 
@@ -449,35 +452,35 @@ def _interpolate(interp: int, x: np.ndarray, y: np.ndarray, newx: np.ndarray, we
             # Initial guess for the parameters
             # return np.sqrt(a0 + a1 * (x-b0) + a2 * np.sqrt(b1 + (x-b0)**2) - a2 * np.sqrt(b1+b0**2) + a3 * np.arctan(x-b0))
             #               [a0,           a1,  a2,  a3,   b0, b1]
-            initial_guess = [np.mean(y)**2, 1,   1,   0,    0,  1]
+            initial_guess = [np.mean(y)**2, 0,   0.1,   0,    0,  1]
 
             # Define bounds: (lower_bounds, upper_bounds)
-            lower_bounds = [0     , -np.inf,       0, -np.inf, -np.inf,       0]  # a0 > 0, -0.1 < b0
-            upper_bounds = [np.inf,  np.inf,  np.inf,  np.inf, +np.inf,  np.inf]  # b0 < 0.1, rest unbounded
+            lower_bounds = [-np.inf, -1,       0, -np.inf, -np.inf,       0]  # a0 > 0, -0.1 < b0
+            upper_bounds = [+np.inf, +1,  np.inf,  np.inf, +np.inf,  np.inf]  # b0 < 0.1, rest unbounded
             
         elif interp==INTERP_SVI002:
             thefunction = non_linear_SVI002
             # Initial guess for the parameters
             # non_linear_SVI000(x, a0, a1, a2, a3, b0, b1):
             #               [a0,            a1,  a2, a3,   b0, b1, b2]
-            initial_guess = [np.min(y)**2,  1,  0.1,  0,  0.1,  1,  1]
+            initial_guess = [np.min(y)**2,  0,  0.1,  0,  0.1,  1,  1]
             # return np.sqrt(a0           + a1 * (x-b0) + a2 * np.sqrt(b1 + (x-b0)**2) - a2 * np.sqrt(b1)) + a3 * np.arctan(b2*(x-b0))
 
             # Define bounds: (lower_bounds, upper_bounds)
-            lower_bounds = [0     , -np.inf,       0, -np.inf, -np.inf,       0, -np.inf]  # a0 > 0, -0.1 < b0
-            upper_bounds = [np.inf,  np.inf,  np.inf,  np.inf, +np.inf,  np.inf,  np.inf]  # b0 < 0.1, rest unbounded
+            lower_bounds = [-np.inf, -1,       0, -np.inf, -np.inf,       0, -np.inf]  # a0 > 0, -0.1 < b0
+            upper_bounds = [+np.inf, +1,  np.inf,  np.inf, +np.inf,  np.inf,  np.inf]  # b0 < 0.1, rest unbounded
 
         elif interp==INTERP_SVI102:
             thefunction = non_linear_SVI002
             # Initial guess for the parameters
             # non_linear_SVI000(x, a0, a1, a2, a3, b0, b1):
             #               [a0,            a1,  a2, a3,   b0, b1, b2]
-            initial_guess = [np.min(y)**2,  1,  0.1,  0,  0.1,  1,  1]
+            initial_guess = [np.min(y)**2,  0,  0.1,  0,  0.1,  1,  1]
             # return np.sqrt(a0           + a1 * (x-b0) + a2 * np.sqrt(b1 + (x-b0)**2) - a2 * np.sqrt(b1)) + a3 * np.arctan(b2*(x-b0))
 
             # Define bounds: (lower_bounds, upper_bounds)
-            lower_bounds = [0     , -np.inf,       0, -np.inf, -np.inf,       0, -np.inf]  # a0 > 0, -0.1 < b0
-            upper_bounds = [np.inf,  np.inf,  np.inf,  np.inf, +np.inf,  np.inf,  np.inf]  # b0 < 0.1, rest unbounded
+            lower_bounds = [-np.inf, -1,       0, -np.inf, -np.inf,       0, -np.inf]  # a0 > 0, -0.1 < b0
+            upper_bounds = [+np.inf, +1,  np.inf,  np.inf, +np.inf,  np.inf,  np.inf]  # b0 < 0.1, rest unbounded
 
             selected_constraints = [SVI002_con_u]
 
@@ -489,8 +492,10 @@ def _interpolate(interp: int, x: np.ndarray, y: np.ndarray, newx: np.ndarray, we
             resbeforeconstraints = residuals(params, x, y**2, thefunction, weights, selected_constraints)
             params = least_squares(residuals, params,        args=(x, y**2, thefunction, weights, selected_constraints), bounds=(lower_bounds, upper_bounds), method='trf').x
             resafterconstraints = residuals(params, x, y**2, thefunction, weights, selected_constraints)
-            params = least_squares(residuals, initial_guess,        args=(x, y**2, thefunction, weights, selected_constraints), bounds=(lower_bounds, upper_bounds), method='trf').x
+            paramsini = least_squares(residuals, initial_guess,        args=(x, y**2, thefunction, weights, selected_constraints), bounds=(lower_bounds, upper_bounds), method='trf').x
             resafterconstraintsini = residuals(params, x, y**2, thefunction, weights, selected_constraints)
+            if np.sum(resafterconstraintsini) < np.sum(resafterconstraints):
+                params = paramsini
             penalty = selected_constraints[0](*params)
             if penalty>0:
                 pause = 1
@@ -501,7 +506,7 @@ def _interpolate(interp: int, x: np.ndarray, y: np.ndarray, newx: np.ndarray, we
         if np.any(newvar<0):
             # print('Negative Variance')
             newvar[newvar<0] = 0
-        newy = np.sqrt(thefunction(newx, *params))
+        newy = np.sqrt(newvar)
 
         # if abs(params[1])>params[2]:
         #     pause = 1
