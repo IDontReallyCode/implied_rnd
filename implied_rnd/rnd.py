@@ -139,7 +139,7 @@ def non_linear_SVI000(x, a0, a1, a2, b0, b1):
     # return (a0 + a1 * (x-b0) + a2 * np.sqrt(b1 + (x-b0)**2))
     
     # Now, use the original SVI model
-    return a0 + a2 * (a1 * (x - b0) + np.sqrt(b1**2 + (x - b0) ** 2))
+    return a0 + a2 * (a1 * (x - b0) + np.sqrt(b1**2 + (x - b0) ** 2)) - a2*b1*np.sqrt(1-a1**2)
 
 
 def SVI000_con_u(a0, a1, a2, b0, b1):
@@ -147,14 +147,14 @@ def SVI000_con_u(a0, a1, a2, b0, b1):
     # a2 > 0
     # b1 > 0
     # -1 < a1 < 1
-
+    raise("Not implemented yet")
     # Next, we need a0 + a2*b1*sqrt*1+a1**2 > =
-    condition = a0 + a2*b1*np.sqrt(1-a1**2)
-    penalty = max(0, -condition)
+    # condition = a0 + a2*b1*np.sqrt(1-a1**2)
+    # penalty = max(0, -condition)
 
-    if penalty>0:
-        penalty = 5*(1+penalty)**2
-    return penalty
+    # if penalty>0:
+    #     penalty = 5*(1+penalty)**2
+    # return penalty
 
 
 def SVI002_con_u(a0, a1, a2, a3, b0, b1, b2):
@@ -402,9 +402,9 @@ def _interpolate(interp: int, x: np.ndarray, y: np.ndarray, newx: np.ndarray, we
             # return np.sqrt(a0 + a1 * (x-b0) + a2 * np.sqrt(b1 + (x-b0)**2) - a2 * np.sqrt(b1))
 
             # Define bounds: (lower_bounds, upper_bounds)
-            #               cte,    slope  hypercurve  location,  curve
-            lower_bounds = [-np.inf, -1,       0,   -np.inf,      0]  # a0 > 0, -0.1 < b0
-            upper_bounds = [+np.inf, +1,  np.inf,   +np.inf, np.inf]  # b0 < 0.1, rest unbounded
+            #               cte,    slope/ratio  hypercurve  location,  curve
+            lower_bounds = [      0,         -1,          0,   -np.inf,      0]  # a0 > 0, -0.1 < b0
+            upper_bounds = [+np.inf,         +1,     np.inf,   +np.inf, np.inf]  # b0 < 0.1, rest unbounded
 
 
         elif interp==INTERP_SVI100:
