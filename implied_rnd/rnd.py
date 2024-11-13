@@ -62,8 +62,9 @@ INTERP_FACTR8 = 128      # Just one hyperbolla + x for asymetry + arctan(x) for 
 INTERP_NONLI1 = 2000      # non-linear hyperbolla + x for asymetry + arctan(x) for an asymetric/distortion feature
 
 INTERP_SVI000 = 2040      # Gatheral SVI model
-INTERP_SVI100 = 2140      # Gatheral SVI model constrained to have a negative slope far left
+INTERP_SVI100 = 2140      # Gatheral SVI model constrained 
 INTERP_SVI110 = 2141      # Gatheral SVI model constrained to have a negative slope far left Better starting values
+INTERP_SVI120 = 2121      # Gatheral SVI model constrained, with tight min region
 INTERP_SVI001 = 2041      # Gatheral SVI model + arctan(x) for an asymetric/distortion feature
 INTERP_SVI002 = 2042      # Gatheral SVI model + arctan(b2*x) for an asymetric/distortion feature
 INTERP_SVI102 = 2142      # Gatheral SVI model + arctan(b2*x) for an asymetric/distortion feature
@@ -419,6 +420,29 @@ def _interpolate(interp: int, x: np.ndarray, y: np.ndarray, newx: np.ndarray, we
             
             selected_constraints = [SVI000_con_u]
 
+        elif interp==INTERP_SVI120:
+            thefunction = non_linear_SVI000
+            # Initial guess for the parameters
+            # non_linear_SVI000(x, a0,    a1, a2,   b0, b1):
+            initial_guess = [np.min(y)**2, 0, 1, -0.1, 1]
+            # return np.sqrt(a0 + a1 * (x-b0) + a2 * np.sqrt(b1 + (x-b0)**2) - a2 * np.sqrt(b1))
+            # sort x on the order of y and put the result in xsorted
+            xsorted = x[np.argsort(y)]
+            # calculate how many is 10% of the data in x
+            n = max(int(len(xsorted)*0.1),3)
+            # find where y is at the minimum
+            minindex = np.argmin(y)
+            # find the value of x at the minimum
+            minx = x[minindex]
+
+            # Define bounds: (lower_bounds, upper_bounds)
+            lower_bounds = [-np.inf, -1,       0, np.min(xsorted[:n]),      0]  # a0 > 0, -0.1 < b0
+            upper_bounds = [+np.inf, +1,  np.inf, np.max(xsorted[:n]), np.inf]  # b0 < 0.1, rest unbounded
+            
+            initial_guess = [np.min(y)**2, 0, 1, minx, 1]
+           
+            selected_constraints = [SVI000_con_u]
+
         elif interp==INTERP_SVI110:
             thefunction = non_linear_SVI000
             # Initial guess for the parameters
@@ -667,8 +691,8 @@ def getfit(x: np.ndarray, y: np.ndarray, interp: int=INTERP_POLYM3, newx: np.nda
         return _interpolate(interp, x, y, newx, weights)
 
 
-def getfitextrapolated(x: np.ndarray, y: np.ndarray, newx: np.ndarray, interp: int=INTERP_POLYM3) -> np.ndarray:
-    return _interpolate(interp, x, y, newx)
+def getfitextrapolated(x: np.ndarray, y: np.ndarray, newx: np.ndarray, interp: int=INTERP_POLYM3, weights: np.ndarray=np.array([])) -> np.ndarray:
+    return _interpolate(interp, x, y, newx, weights)
 
 
 def getrnd(K: np.ndarray, V: np.ndarray, S: float, rf: float, t: float, interp: int=INTERP_POLYM3, method: int=METHOD_STDR_EXTRAPIV, extrap: int=EXTRAP_LINEAR, 

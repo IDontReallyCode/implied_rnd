@@ -27,13 +27,13 @@ def main():
     N = 10  # Number of dates to select
 
     # selected_file = 'SPX.ipc'
-    ticker = 'SPY'
+    ticker = 'SPX'
     selected_file = f'{ticker}.ipc'
     # selected_file = 'AMZN.ipc'
     # selected_file = 'ROKU.ipc'
     # model1 = [rnd.INTERP_POLYM4, "POLYM4"]
-    model1 = [rnd.INTERP_SVI100, "SVI100"]
-    model2 = [rnd.INTERP_SVI002, "SVI102"]
+    model1 = [rnd.INTERP_SVI000, "SVI000"]
+    model2 = [rnd.INTERP_SVI100, "SVI100"]
     # model2 = [rnd.INTERP_FACTR1, "FACTR1"]
 
     weighted = False

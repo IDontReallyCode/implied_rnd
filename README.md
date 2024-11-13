@@ -14,6 +14,34 @@ Receive:
 
 
 
+
+## PROJECT 002 - Simply visuallize the fit, and possibly the extrapolation
+Poly M4 fitting using OLS or WOLS goes well for intrapolation, but extrapolation is horrible, obviously
+
+SVI fitting using optimization is questionnable. 
+### SVI fitting
+1. Good starting values are necessary
+2. Multiple starting values might be necessary, but I have not tested this yet. (Need to look up old code with ranges for parameters)
+3. Hard boundaries on parameters are necessary
+4. Penalties on non-linear constraints are necessary as well
+5. Without a good weighting scheme, it seems the fitting my result in pretty bad fits. However, it is not clear whether this is caused from fitting the wrong region of the data or from bad strating values.
+
+#### Potential problem
+- Without data on the left side (positive returns) of the IVar curve, it might be impossible to identify the skew
+- Perhaps, we need to keep the unreliable/noisy data in there to get some control on the left side?
+
+
+#### IDEAS TO FIX
+1. Dig up the NGARCH fitting code with multiple starting values
+2. Re-parametrize such that the positive condition is a parameter. This way, it will be included in the hard boundaries on parameters instead.
+3. Come up with a strong weighting scheme
+4. Re-parametrize in terms on right slope.
+    1. Estimate that slope from the data and provide a confidence interval as the limit on that parameter
+    2. Estimate the region where the minimum might lie, provided limit on that parameter
+    3. 
+
+
+
 ## PROJECT 004 - Compare IVS fit on RMSE
 
 ### Description

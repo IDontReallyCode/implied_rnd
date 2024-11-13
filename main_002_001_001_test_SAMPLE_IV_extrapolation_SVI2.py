@@ -84,31 +84,44 @@ def main():
         # & (pl.col('trade_volume') > 0)
         # & (pl.col('otm') == True)
         # & ((pl.col('ask') - pl.col('bid')) / ((pl.col('ask') + pl.col('bid')) / 2) < 1.75) 
-        
+
+        x = this_pf['tslm'].to_numpy()
+        y = this_pf['implied_volatility'].to_numpy()
+
+        w_oi = this_pf['open_interest'].to_numpy()
+        w_oi = w_oi / w_oi.sum()
+
+        w_iv = -1*this_pf['implied_volatility'].to_numpy()
+        w_iv = w_iv - w_iv.min()
+        w_iv = w_iv / w_iv.sum()
+
+        # calculate the normal density for a standard normal distribution
+        w_nm = np.exp(-0.5*x**2)
+
         # not do a scatter of the 'iv' vs 'tslm' columns
         # plt.scatter(this_pf['tslm'], this_pf['bid_iv'])
         # plt.scatter(this_pf['strike'], this_pf['implied_volatility'])
-        plt.scatter(this_pf['tslm'], this_pf['implied_volatility'], s=10)
 
         # V_hat_poly3 = rnd.getfit(this_pf['tslm'].to_numpy(), this_pf['implied_volatility'].to_numpy(), rnd.INTERP_POLYM3)
         # V_hat_nlin0 = rnd.getfit(this_pf['tslm'].to_numpy(), this_pf['implied_volatility'].to_numpy(), rnd.INTERP_SVI100)
         # V_hat_nlin1 = rnd.getfit(this_pf['tslm'].to_numpy(), this_pf['implied_volatility'].to_numpy(), rnd.INTERP_SVI102)
 
         # Now, I want to extend the domain in tslm by 25% on each side and use N points
-        N = 100
+        N = 300
         tslm_min = -5 #this_pf['tslm'].min()*20
         tslm_max = +2 #this_pf['tslm'].max()*2.5
         tslm_range = tslm_max - tslm_min
         tslm_new = np.linspace(tslm_min, tslm_max, N)
 
-        V_hat_extr0 = rnd.getfitextrapolated(this_pf['tslm'].to_numpy(), this_pf['implied_volatility'].to_numpy(), tslm_new, rnd.INTERP_SVI000)
-        V_hat_extr1 = rnd.getfitextrapolated(this_pf['tslm'].to_numpy(), this_pf['implied_volatility'].to_numpy(), tslm_new, rnd.INTERP_SVI100)
-        V_hat_extr2 = rnd.getfitextrapolated(this_pf['tslm'].to_numpy(), this_pf['implied_volatility'].to_numpy(), tslm_new, rnd.INTERP_SVI110)
+        V_hat_extr0 = rnd.getfitextrapolated(x,y, tslm_new, rnd.INTERP_SVI100)
+        V_hat_extr1 = rnd.getfitextrapolated(x,y, tslm_new, rnd.INTERP_SVI120)
+        V_hat_extr2 = rnd.getfitextrapolated(x,y, tslm_new, rnd.INTERP_SVI110, weights=w_nm)
 
 
         # plt.scatter(this_pf['tslm'], V_hat_poly3, s=10)
         # plt.scatter(this_pf['tslm'], V_hat_nlin0, s=10)
         # plt.scatter(this_pf['tslm'], V_hat_nlin1, s=10)
+        plt.scatter(this_pf['tslm'], this_pf['implied_volatility'], s=10)
         plt.plot(tslm_new, V_hat_extr0, alpha=0.5)
         plt.plot(tslm_new, V_hat_extr1, alpha=0.5)
         plt.plot(tslm_new, V_hat_extr2, alpha=0.5)
