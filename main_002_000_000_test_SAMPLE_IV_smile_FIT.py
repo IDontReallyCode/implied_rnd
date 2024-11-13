@@ -89,20 +89,18 @@ def main():
 
         x = this_pf['tslm'].to_numpy()
         y = this_pf['implied_volatility'].to_numpy()
-        if weighted:
-            w = this_pf['open_interest'].to_numpy()
-            w = w / w.sum()
-        else:
-            w = np.array([])
+        w = this_pf['open_interest'].to_numpy()
+        w = w / w.sum()
         
-        # not do a scatter of the 'iv' vs 'tslm' columns
-        plt.scatter(this_pf['tslm'], this_pf['implied_volatility'], s=10, label = 'DATA')
 
-        v_hat_1 = rnd.getfit(this_pf['tslm'].to_numpy(), this_pf['implied_volatility'].to_numpy(), model1[0], weights=w)
-        v_hat_2 = rnd.getfit(this_pf['tslm'].to_numpy(), this_pf['implied_volatility'].to_numpy(), model2[0], weights=w)
-        # plt.scatter(this_pf['tslm'], V_hat_poly3, s=10)
-        plt.scatter(this_pf['tslm'], v_hat_1, s=10, label = model1[1])
-        plt.scatter(this_pf['tslm'], v_hat_2, s=10, label = model2[1])
+        v_hat_1 = rnd.getfit(x, y, model1[0], weights=w)
+        v_hat_2 = rnd.getfit(x, y, model2[0])
+        v_hat_3 = rnd.getfit(x, y, model2[0], weights=w)
+
+        plt.scatter(x, y, s=10, label = 'DATA')
+        plt.scatter(x, v_hat_1, s=10, label = model1[1])
+        plt.scatter(x, v_hat_2, s=10, label = model2[1])
+        plt.scatter(x, v_hat_3, s=10, label = model2[1])
         plt.legend()
         plt.title(f'{ticker} - {one_date}')
         plt.show()

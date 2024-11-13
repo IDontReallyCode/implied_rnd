@@ -34,6 +34,7 @@ SVI fitting using optimization is questionnable.
 #### IDEAS TO FIX
 1. Dig up the NGARCH fitting code with multiple starting values
 2. Re-parametrize such that the positive condition is a parameter. This way, it will be included in the hard boundaries on parameters instead.
+    1. $a0 + a2 * (a1 * (x - b0) + np.sqrt(b1^2 + (x - b0)^2)) - a2*b1*np.sqrt(1-a1^2)$
 3. Come up with a strong weighting scheme
 4. Re-parametrize in terms on right slope.
     1. Estimate that slope from the data and provide a confidence interval as the limit on that parameter

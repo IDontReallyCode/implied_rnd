@@ -520,9 +520,9 @@ def _interpolate(interp: int, x: np.ndarray, y: np.ndarray, newx: np.ndarray, we
             resafterconstraintsini = residuals(params, x, y**2, thefunction, weights, selected_constraints)
             if np.sum(resafterconstraintsini) < np.sum(resafterconstraints):
                 params = paramsini
-            penalty = selected_constraints[0](*params)
-            if penalty>0:
-                pause = 1
+            # penalty = selected_constraints[0](*params)
+            # if penalty>0:
+            #     pause = 1
             pass
 
         # Predict new values

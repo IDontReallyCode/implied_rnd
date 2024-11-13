@@ -31,9 +31,11 @@ def main():
     selected_file = f'{ticker}.ipc'
     # selected_file = 'AMZN.ipc'
     # selected_file = 'ROKU.ipc'
-    model1 = [rnd.INTERP_POLYM4, "POLYM4"]
+    model1 = [rnd.INTERP_SVI000, "filtered w=0"]
     # model1 = [rnd.INTERP_SVI000, "SVI000"]
-    model2 = [rnd.INTERP_SVI000, "SVI000"]
+    model2 = [rnd.INTERP_SVI000, "all w=0"]
+    model3 = [rnd.INTERP_SVI000, "all w=oi"]
+    model4 = [rnd.INTERP_SVI000, "all w=iv"]
     # model2 = [rnd.INTERP_FACTR1, "FACTR1"]
 
     weighted = False
@@ -88,25 +90,39 @@ def main():
                                  & (pl.col('implied_volatility') > 0)
                                  )                                                  ## CHECKED                                      
 
-        x = this_pf['tslm'].to_numpy()
-        y = this_pf['implied_volatility'].to_numpy()
-        if weighted:
-            w = this_pf['open_interest'].to_numpy()
-            w = w / w.sum()
-        else:
-            w = np.array([])
-        xfiltered = filtered_pf['tslm'].to_numpy()
-        yfiltered = filtered_pf['implied_volatility'].to_numpy()
+        x = filtered_pf['tslm'].to_numpy()
+        y = filtered_pf['implied_volatility'].to_numpy()
+        w_oi = filtered_pf['open_interest'].to_numpy()
+        w_oi = w_oi / w_oi.sum()
+
+        w_iv = filtered_pf['implied_volatility'].to_numpy()
+        w_iv = w_iv / w_iv.sum()
+
+        xba = this_pf['tslm'].to_numpy()
+        yb = this_pf['bid_iv'].to_numpy()
+        ya = this_pf['ask_iv'].to_numpy()
+        # stack the yb and ya vectors into yba
+        yba = np.hstack((yb, ya))
+        # stack xba twice to match the shape of yba and put that into xba
+        xba = np.hstack((xba, xba))
+        # now, remove any NaN values from xba and yba
+        mask = np.isnan(yba)
+        xba = xba[~mask]
+        yba = yba[~mask]
         
 
-        v_hat_1 = rnd.getfit(x,y, model1[0], weights=w)
-        v_hat_2 = rnd.getfit(x,y, model2[0], weights=w)
+        v_hat_1 = rnd.getfit(xba,yba, model1[0])
+        v_hat_2 = rnd.getfit(x,y, model2[0])
+        v_hat_3 = rnd.getfit(x,y, model3[0], weights=w_oi)
+        v_hat_4 = rnd.getfit(x,y, model4[0], weights=w_iv)
         # plt.scatter(this_pf['tslm'], V_hat_poly3, s=10)
         # not do a scatter of the 'iv' vs 'tslm' columns
-        plt.scatter(x, y, s=10, label = 'DATA')
-        plt.scatter(x, v_hat_1, s=10, label = model1[1])
+        plt.scatter(xba, yba, s=10, label = 'DATA')
+        plt.scatter(xba, v_hat_1, s=10, label = model1[1])
         plt.scatter(x, v_hat_2, s=10, label = model2[1])
-        plt.scatter(xfiltered, yfiltered, s=10, label = 'DATA filtered')
+        plt.scatter(x, v_hat_3, s=10, label = model3[1])
+        plt.scatter(x, v_hat_4, s=10, label = model4[1])
+        # plt.scatter(xfiltered, yfiltered, s=10, label = 'DATA filtered')
         plt.legend()
         plt.title(f'{ticker} - {one_date}')
         plt.show()
