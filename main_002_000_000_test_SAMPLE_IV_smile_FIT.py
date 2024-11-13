@@ -31,9 +31,9 @@ def main():
     selected_file = f'{ticker}.ipc'
     # selected_file = 'AMZN.ipc'
     # selected_file = 'ROKU.ipc'
-    # model1 = [rnd.INTERP_POLYM4, "POLYM4"]
-    model1 = [rnd.INTERP_SVI000, "SVI000"]
-    model2 = [rnd.INTERP_SVI100, "SVI100"]
+    model1 = [rnd.INTERP_POLYM4, "POLYM4"]
+    # model1 = [rnd.INTERP_SVI000, "SVI000"]
+    model2 = [rnd.INTERP_SVI000, "SVI000"]
     # model2 = [rnd.INTERP_FACTR1, "FACTR1"]
 
     weighted = False

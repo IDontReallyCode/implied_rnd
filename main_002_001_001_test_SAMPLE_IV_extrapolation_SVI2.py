@@ -113,9 +113,9 @@ def main():
         tslm_range = tslm_max - tslm_min
         tslm_new = np.linspace(tslm_min, tslm_max, N)
 
-        V_hat_extr0 = rnd.getfitextrapolated(x,y, tslm_new, rnd.INTERP_SVI100)
-        V_hat_extr1 = rnd.getfitextrapolated(x,y, tslm_new, rnd.INTERP_SVI120)
-        V_hat_extr2 = rnd.getfitextrapolated(x,y, tslm_new, rnd.INTERP_SVI110, weights=w_nm)
+        V_hat_extr0 = rnd.getfitextrapolated(x,y, tslm_new, rnd.INTERP_POLYM4)
+        V_hat_extr1 = rnd.getfitextrapolated(x,y, tslm_new, rnd.INTERP_SVI000)
+        V_hat_extr2 = rnd.getfitextrapolated(x,y, tslm_new, rnd.INTERP_POLYM4, weights=w_nm)
 
 
         # plt.scatter(this_pf['tslm'], V_hat_poly3, s=10)
@@ -125,8 +125,9 @@ def main():
         plt.plot(tslm_new, V_hat_extr0, alpha=0.5)
         plt.plot(tslm_new, V_hat_extr1, alpha=0.5)
         plt.plot(tslm_new, V_hat_extr2, alpha=0.5)
-        plt.legend(['data', 'INTERP_SVI000', 'INTERP_SVI100', 'INTERP_SVI110'])
+        plt.legend(['data', 'INTERP_POLYM4', 'INTERP_SVI000', 'INTERP_POLYM4 w'])
         plt.title(f'#{index}:  {ticker} - {one_date}')
+        plt.ylim(0, 1)
         plt.show()
 
         # # I want to put this_pf['tslm'], this_pf['implied_volatility']**2 into numpy values called x and y
