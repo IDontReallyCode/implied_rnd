@@ -79,7 +79,7 @@ INTERP_3D_SVI01 = 4101  # 3D SVI +t + m*t + time-to-maturity slope
 
 
 EXTRAP_LINEAR = 10       # works only for METHOD_STDR_EXTRAPIV
-EXTRAP_GPARTO = 20       # works only for METHOD_STDR_EXTRADEN
+EXTRAP_GP3PTS = 20       # works only for METHOD_STDR_EXTRADEN
 EXTRAP_GBETA2 = 21       # works only for METHOD_STDR_EXTRADEN
 EXTRAP_ASYMPT = 30       # works only for METHOD_TLSM_EXTRAPIV
 
@@ -720,7 +720,7 @@ def getrnd(K: np.ndarray, V: np.ndarray, S: float, rf: float, t: float, interp: 
     Returns:
         np.ndarray: Two NumPy arrays of size (nbpoints,) one for underlying values, and one for density.
 
-    Suppose extrap = EXTRAP_GPARTO, method = METHOD_STDR_EXTRADEN, and densityrange = DENSITY_RANGE_EXTENDD
+    Suppose extrap = EXTRAP_GP3PTS, method = METHOD_STDR_EXTRADEN, and densityrange = DENSITY_RANGE_EXTENDD
     """
     N = len(K)  # Determine the size N based on the length of K
     K = np.array(K)  # Convert K to a NumPy array
@@ -802,12 +802,79 @@ def getrnd(K: np.ndarray, V: np.ndarray, S: float, rf: float, t: float, interp: 
         # plt.plot(outputx[interpmask], outputf[interpmask]); plt.show()
         
         # Generalized Pareto and Generalized Beta 2.
-        if extrap==EXTRAP_GPARTO:
-            # We need to have a simple function that will optimize the different parameters of the Generalized Pareto density to match 2 or 3 points of the current density
-            thetaleft = opt._fittail(outputx[interpmask][3]-outputx[interpmask][0:3][::-1], outputf[interpmask][0:3][::-1], opt.evalgenpareto)
-            outputf[extlftmask] = (genpareto.pdf(outputx[interpmask][3]-outputx[extlftmask][::-1], c=thetaleft[0], loc=thetaleft[1], scale=thetaleft[2]))
-            thetarigt = opt._fittail(outputx[interpmask][-3:-1], outputf[interpmask][-3:-1], opt.evalgenpareto)
-            outputf[extrgtmask] = genpareto.pdf(outputx[extrgtmask], thetarigt[0], loc=thetarigt[1])
+        if extrap==EXTRAP_GP3PTS:
+            # TODO 2024-11-14: This one here fits the 3 parameters of the Generalized Pareto distribution to the 3 points of the current density
+            # We start with the left tail. Since Generalized Pareto is a distribution for the right tail, we need to flip the left tail.
+            # We fit the left tail to the leftmost 3 points of the density
+
+            # *****DEBUG: check whether we have the right data
+            # *****x3pts = outputx[interpmask][0:3]
+            # *****y3pts = outputf[interpmask][0:3]
+            # *****plt.plot(outputx[interpmask], outputf[interpmask])
+            # *****plt.scatter(x3pts, y3pts)
+            # *****plt.show()
+            # *****VERIFIED: we do have the right data.
+            # *****Now we flip the left tail, We need the values of x 
+            # *****x3ptsflipped = x3pts[::-1]
+            # *****y3ptsflipped = y3pts
+            # *****plt.scatter(x3ptsflipped, y3ptsflipped)
+            # *****plt.show()
+            # *****VERIFIED: Now we have what we need to fit the left tail.
+            npts = 2
+            xlefttailfit = outputx[interpmask][0:npts][::-1]
+            refpoint = outputx[interpmask][npts]
+            xlefttailfit = -1*(xlefttailfit - refpoint)
+            ylefttailfit = outputf[interpmask][0:npts][::-1]
+            xlefttailext = -1*(outputx[extlftmask][::-1] - refpoint)
+
+            xrighttailfit = outputx[interpmask][-npts:]
+            refpoint = outputx[interpmask][-npts-1]
+            xrighttailfit = xrighttailfit - refpoint
+            yrighttailfit = outputf[interpmask][-npts:]
+            xrighttailext = outputx[extrgtmask] - refpoint
+
+            thetaleft = opt._fittail(xlefttailfit, ylefttailfit, opt.evalgenpareto)
+
+            outputf = opt.fittails(outputx, interpmask, extlftmask, extrgtmask, outputf, opt.F_GENPARETO)
+
+            # DEBUG: check whether we have the right output
+            # fout = genpareto.pdf(xlefttailfit, c=thetaleft[0], loc=0, scale=thetaleft[1])
+            # plt.scatter(outputx[interpmask][0:npts], ylefttailfit)
+            # plt.scatter(outputx[interpmask][0:npts], fout, marker='o')
+            # plt.scatter(xlefttailfit, fout, marker='o')
+
+            # extendf = genpareto.pdf(xlefttailext, c=thetaleft[0], loc=0, scale=thetaleft[1])
+            # extendx = outputx[extlftmask]
+
+            # plt.scatter(xlefttailext[:5], extendf[:5])
+            # plt.scatter(xlefttailext, extendf)
+            # plt.scatter(extendx[-5:], extendf[-5:])
+
+            # plt.scatter(xlefttailfit, ylefttailfit, s=10)
+            # plt.show()
+
+            # plt.scatter(xrighttailfit, yrighttailfit)
+            # plt.show()
+
+
+            # outputf[extlftmask] = (genpareto.pdf(xlefttailext, c=thetaleft[0], loc=0, scale=thetaleft[1]))
+            # outputf[extlftmask] = outputf[extlftmask][::-1]
+            # # DEBUG: check whether we have the right output
+            # plt.plot(outputx[interpmask], outputf[interpmask])
+            # plt.plot(outputx[extlftmask], outputf[extlftmask])
+            # plt.show()
+
+            # Now we fit the right tail to the rightmost 2 points of the density
+            # xrighttailfit = outputx[interpmask][-npts:]
+            # refpoint = outputx[interpmask][-npts-1]
+            # xrighttailfit = xrighttailfit - refpoint
+            # yrighttailfit = outputf[interpmask][-npts:]
+            # xrighttailext = outputx[extrgtmask] - refpoint
+
+
+
+            # thetarigt = opt._fittail(xrighttailfit, yrighttailfit, opt.evalgenpareto)
+            # outputf[extrgtmask] = genpareto.pdf(xrighttailext, c=thetarigt[0], loc=0, scale=thetarigt[1])
             # plt.plot(outputx[interpmask], outputf[interpmask])
             # # plt.plot(outputx[extrgtmask], outputf[extrgtmask])
             # plt.plot(outputx[extlftmask][::-1], outputf[extlftmask]); 
