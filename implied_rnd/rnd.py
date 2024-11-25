@@ -833,7 +833,7 @@ def getrnd(K: np.ndarray, V: np.ndarray, S: float, rf: float, t: float, interp: 
             yrighttailfit = outputf[interpmask][-npts:]
             xrighttailext = outputx[extrgtmask] - refpoint
 
-            thetaleft = opt._fittail(xlefttailfit, ylefttailfit, opt.evalgenpareto)
+            # thetaleft = opt._fittail(xlefttailfit, ylefttailfit, opt.evalgenpareto)
 
             outputf = opt.fittails(outputx, interpmask, extlftmask, extrgtmask, outputf, opt.F_GENPARETO)
 
