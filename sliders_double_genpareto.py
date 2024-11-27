@@ -3,16 +3,16 @@ import matplotlib.pyplot as plt
 from matplotlib.widgets import Slider
 from scipy.stats import genpareto
 import pandas as pd
-import optimizing as opt
+from implied_rnd import optimizing as opt
 from scipy.integrate import simps
 
 
 # Load your data
-outputx = np.load('v1_outputx.npy')
-outputf = np.load('v1_outputf.npy')
-extlftmask = np.load('v1_extlftmask.npy')
-extrgtmask = np.load('v1_extrgtmask.npy')
-interpmask = np.load('v1_interpmask.npy')
+outputx    = np.load('v2_outputx.npy')
+outputf    = np.load('v2_outputf.npy')
+extlftmask = np.load('v2_extlftmask.npy')
+extrgtmask = np.load('v2_extrgtmask.npy')
+interpmask = np.load('v2_interpmask.npy')
 
 # The data that does not change, determined by Breenden and Litzenberger (1978)
 xinterp = outputx[interpmask]
@@ -33,12 +33,6 @@ xlefttaileval = -1*(xlefttail - refpoint)
 thetaleft = opt._fittail(xlefttailfit, ylefttailfit)
 
 # Right tail **************************************************
-
-# xlefttailin = -1*(xlefttail - refpoint)
-# xrighttail = outputx[extrgtmask]
-# # refpoint = outputx[interpmask][-1]
-# xrighttailin = xrighttail - refpoint
-# the x data to be plotted
 xrighttail = outputx[extrgtmask]
 
 xrighttailfit = outputx[interpmask][-2:]
@@ -86,9 +80,9 @@ ax_c2 = plt.axes([0.1, 0.1, 0.65, 0.03], facecolor=axcolor)
 ax_loc2 = plt.axes([0.1, 0.05, 0.65, 0.03], facecolor=axcolor)
 ax_scale2 = plt.axes([0.1, 0, 0.65, 0.03], facecolor=axcolor)
 
-s_c1 = Slider(ax_c1, 'c1', thetaleft[0]/5, thetaleft[0]*5, valinit=cleft_init)
-s_loc1 = Slider(ax_loc1, 'loc1', -10.0, 0, valinit=locleft_init)
-s_scale1 = Slider(ax_scale1, 'scale1', thetaleft[1]/5, thetaleft[1]*5, valinit=scaleleft_init)
+s_c1 = Slider(ax_c1, 'c1', thetaleft[0]/5, thetaleft[0]*100, valinit=cleft_init)
+s_loc1 = Slider(ax_loc1, 'loc1', -20.0, 0, valinit=locleft_init)
+s_scale1 = Slider(ax_scale1, 'scale1', thetaleft[1]/100, thetaleft[1]*5, valinit=scaleleft_init)
 s_c2 = Slider(ax_c2, 'c2', thetarigt[0]/10, thetarigt[0]*100, valinit=criht_init)
 s_loc2 = Slider(ax_loc2, 'loc2', -20.0, 0, valinit=locriht_init)
 s_scale2 = Slider(ax_scale2, 'scale2', thetarigt[1]/100, thetarigt[1]*10, valinit=scaleriht_init)

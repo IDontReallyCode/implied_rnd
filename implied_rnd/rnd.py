@@ -16,6 +16,7 @@ from scipy.stats import genpareto
 from scipy.integrate import quad
 from scipy.optimize import curve_fit
 from scipy.optimize import least_squares
+from scipy.integrate import simpson
 
 import matplotlib.pyplot as plt
 # import warnings
@@ -909,6 +910,11 @@ def getrnd(K: np.ndarray, V: np.ndarray, S: float, rf: float, t: float, interp: 
         p = bls('p', S=S, K=outputx, t=t, r=rf, sigma=outputy, return_as='np')
         # get convexity
         outputf = np.exp(rf * t) * np.gradient(np.gradient(p, outputx, edge_order=2), outputx, edge_order=2)
+
+        # Now check the integral here
+        cumulative = simpson(outputf, outputx)
+        # now print the cumulative value for the SVI model
+        print(f"Integral of the density with SVI extrapolation: {cumulative}")
         # plt.plot(outputx, outputf); plt.show()
         pass
     else:

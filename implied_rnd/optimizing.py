@@ -1,5 +1,8 @@
 from scipy.optimize import minimize
 from scipy.stats import genpareto
+from scipy.integrate import simps
+from scipy.optimize import differential_evolution
+
 
 import matplotlib.pyplot as plt
 
@@ -34,19 +37,39 @@ def evalgenbeta2(theta: np.ndarray, x: np.ndarray, f: np.ndarray):
 
 
 def _fittailsandintegral(theta: np.ndarray, outputx: np.ndarray, interpmask: np.ndarray, extlftmask: np.ndarray, extrgtmask: np.ndarray, outputf: np.ndarray, whichdensity: int = F_GENPARETO):
-    # 
-    npts = 2
-    xlefttailfit = outputx[interpmask][0:npts][::-1]
-    refpoint = outputx[interpmask][npts-1]
-    xlefttailfit = -1*(xlefttailfit - refpoint)
-    ylefttailfit = outputf[interpmask][0:npts][::-1]
-    xlefttailext = -1*(outputx[extlftmask][::-1] - refpoint)
 
-    xrighttailfit = outputx[interpmask][-npts:]
-    refpoint = outputx[interpmask][-npts]
+    # The data that does not change, determined by Breenden and Litzenberger (1978)
+    xinterp = outputx[interpmask]
+    yinterp = outputf[interpmask]
+
+    # Calculate the area under the curve
+    # midlpartarea = simps(yinterp, xinterp)
+
+    # 
+    # Left tail **************************************************
+    # the x data to be plotted
+    xlefttail = outputx[extlftmask]
+    # the x data to be fitted
+    xlefttailfit = outputx[interpmask][0:2][::-1]
+    refpoint = outputx[interpmask][1]
+    xlefttailfit = -1*(xlefttailfit - refpoint)
+    ylefttailfit = outputf[interpmask][0:2][::-1]
+
+    xlefttaileval = -1*(xlefttail - refpoint)
+
+    # Let us fit the scale and shape parameters of the Generalized Pareto Distribution, leaving location = 0
+    # thetaleftnaive = _fittail(xlefttailfit, ylefttailfit)
+
+    # Right tail **************************************************
+    xrighttail = outputx[extrgtmask]
+
+    xrighttailfit = outputx[interpmask][-2:]
+    refpoint = outputx[interpmask][-2]
     xrighttailfit = xrighttailfit - refpoint
-    yrighttailfit = outputf[interpmask][-npts:]
-    xrighttailext = outputx[extrgtmask] - refpoint
+    yrighttailfit = outputf[interpmask][-2:]
+    xrighttaileval = xrighttail - refpoint
+
+    # thetarigtnaive = _fittail(xrighttailfit, yrighttailfit)
 
     # theta_left is the first three points of theta
     theta_lft = theta[0:3]
@@ -54,17 +77,19 @@ def _fittailsandintegral(theta: np.ndarray, outputx: np.ndarray, interpmask: np.
     theta_rgt = theta[3:]
 
     # Evaluate the Generalized Pareto density for the left tail
-    e2_lft = evalgenpareto(theta_lft, xlefttailfit, ylefttailfit)
+    e2_lft = 1 + evalgenpareto(theta_lft, xlefttailfit, ylefttailfit)
     # Evaluate the Generalized Pareto density for the right tail
-    e2_rgt = evalgenpareto(theta_rgt, xrighttailfit, yrighttailfit)
+    e2_rgt = 1 + evalgenpareto(theta_rgt, xrighttailfit, yrighttailfit)
 
-    outputf[extlftmask] = (genpareto.pdf(xlefttailext, c=theta_lft[0], loc=theta_lft[1], scale=theta_lft[2])[::-1])
-    outputf[extrgtmask] = (genpareto.pdf(xrighttailext, c=theta_rgt[0], loc=theta_rgt[1], scale=theta_rgt[2]))
+    outputf[extlftmask] = (genpareto.pdf(xlefttaileval, c=theta_lft[0], loc=theta_lft[1], scale=theta_lft[2]))
+    outputf[extrgtmask] = (genpareto.pdf(xrighttaileval, c=theta_rgt[0], loc=theta_rgt[1], scale=theta_rgt[2]))
 
     # Now, I have outputx and outputf. I need to integrate the density over the entire range of outputx to make sure the integral is 1
     # I will use the trapezoidal rule to integrate the density
     # Compute the integral of the density
-    integral = np.trapz(outputf, outputx)
+    integral = simps(outputx, outputf)
+    # print(f'Integral: {integral}')
+
     # Compute the sum of squared errors between the integral and 1
     e2_integral = (integral - 1) ** 2
 
@@ -84,14 +109,48 @@ def fittails(outputx: np.ndarray, interpmask: np.ndarray, extlftmask: np.ndarray
     initial_theta = [1.0, 0.0, 1.0, 1.0, 0.0, 1.0]
     bounds__theta = [(0.0, None), (None, 0), (0.0, None), (0.0, None), (None, 0), (0.0, None)]
 
+    # Left tail **************************************************
+    # the x data to be plotted
+    xlefttail = outputx[extlftmask]
+    # the x data to be fitted
+    xlefttailfit = outputx[interpmask][0:2][::-1]
+    refpoint = outputx[interpmask][1]
+    xlefttailfit = -1*(xlefttailfit - refpoint)
+    ylefttailfit = outputf[interpmask][0:2][::-1]
+
+    xlefttaileval = -1*(xlefttail - refpoint)
 
 
+    # Let us fit the scale and shape parameters of the Generalized Pareto Distribution, leaving location = 0
+    thetaleft = _fittail(xlefttailfit, ylefttailfit)
 
-    # Minimize the function
-    result = minimize(_fittailsandintegral, initial_theta, method='L-BFGS-B', 
-                      bounds=bounds__theta, args=(outputx, interpmask, extlftmask, extrgtmask, outputf, whichdensity), 
-                      options={'ftol': 1e-10, 'maxiter': 10000})
 
+    # Right tail **************************************************
+    xrighttail = outputx[extrgtmask]
+
+    xrighttailfit = outputx[interpmask][-2:]
+    refpoint = outputx[interpmask][-2]
+    xrighttailfit = xrighttailfit - refpoint
+    yrighttailfit = outputf[interpmask][-2:]
+    xrighttaileval = outputx[extrgtmask] - refpoint
+
+    thetarigt = _fittail(xrighttailfit, yrighttailfit)
+
+    initial_theta[0] = thetaleft[0]
+    initial_theta[2] = thetaleft[1]
+    initial_theta[3] = thetarigt[0]
+    initial_theta[5] = thetarigt[1]
+
+    # # Minimize the function
+    # result = minimize(_fittailsandintegral, initial_theta, method='L-BFGS-B', 
+    #                   bounds=bounds__theta, args=(outputx, interpmask, extlftmask, extrgtmask, outputf, whichdensity), 
+    #                   options={'ftol': 1e-10, 'maxiter': 10000})
+
+    # theta = [c1, loc1, scale1, c2, loc2, scale2]
+    # Minimize the function using differential_evolution
+    result = differential_evolution(_fittailsandintegral, bounds__theta, 
+                                    args=(outputx, interpmask, extlftmask, extrgtmask, outputf, whichdensity),
+                                    tol=1e-10, maxiter=10000)
     
 
     # The optimized theta values check the output from the fitted fnction

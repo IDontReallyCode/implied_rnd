@@ -27,7 +27,7 @@ def main():
     N = 10  # Number of dates to select
 
     # selected_file = 'SPX.ipc'
-    ticker = 'SPX'
+    ticker = 'AMZN'
     selected_file = f'{ticker}.ipc'
     # selected_file = 'AMZN.ipc'
     # selected_file = 'ROKU.ipc'
