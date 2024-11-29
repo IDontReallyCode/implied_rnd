@@ -1,5 +1,6 @@
 from scipy.optimize import minimize
 from scipy.stats import genpareto
+from scipy.stats import genextreme
 from scipy.integrate import simps
 from scipy.optimize import differential_evolution
 
@@ -9,6 +10,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 F_GENPARETO = 0
+F_GENEXTREME = 1
 
 
 def evalgenpareto(theta: np.ndarray, x: np.ndarray, f: np.ndarray):
@@ -31,12 +33,40 @@ def evalgenpareto(theta: np.ndarray, x: np.ndarray, f: np.ndarray):
     return e2
 
 
+def evalgenextreme(theta: np.ndarray, x: np.ndarray, f: np.ndarray):
+    # theta: Parameters for the Generalized Extreme Value distribution
+    # x: Data points at which to evaluate the PDF
+    # f: Observed frequencies or densities
+
+    if len(theta) == 2:
+        # Extract shape, location, and scale parameters from theta
+        shape, scale = theta
+        loc = 0
+    else:
+        shape, loc, scale = theta
+
+    # Create a GEV distribution object
+    gevdist = genextreme(shape, loc, scale)
+    # Calculate the PDF of the Generalized Extreme Value distribution at the given data points
+    fhat = gevdist.pdf(x, c=shape, loc=loc, scale=scale)
+
+    # Compute the sum of squared errors between the observed and estimated densities
+    e2 = np.sum((fhat - f) ** 2)
+
+    return e2
+
+
 def evalgenbeta2(theta: np.ndarray, x: np.ndarray, f: np.ndarray):
     # print(theta)
     raise ValueError('Generalized Beta 2 is not ready')
 
 
 def _fittailsandintegral(theta: np.ndarray, outputx: np.ndarray, interpmask: np.ndarray, extlftmask: np.ndarray, extrgtmask: np.ndarray, outputf: np.ndarray, whichdensity: int = F_GENPARETO):
+
+    if whichdensity == F_GENPARETO:
+        thisdensity = evalgenpareto
+    elif whichdensity == F_GENEXTREME:
+        thisdensity = evalgenextreme
 
     # The data that does not change, determined by Breenden and Litzenberger (1978)
     xinterp = outputx[interpmask]
@@ -77,9 +107,9 @@ def _fittailsandintegral(theta: np.ndarray, outputx: np.ndarray, interpmask: np.
     theta_rgt = theta[3:]
 
     # Evaluate the Generalized Pareto density for the left tail
-    e2_lft = 1 + evalgenpareto(theta_lft, xlefttailfit, ylefttailfit)
+    e2_lft = thisdensity(theta_lft, xlefttailfit, ylefttailfit)
     # Evaluate the Generalized Pareto density for the right tail
-    e2_rgt = 1 + evalgenpareto(theta_rgt, xrighttailfit, yrighttailfit)
+    e2_rgt = thisdensity(theta_rgt, xrighttailfit, yrighttailfit)
 
     outputf[extlftmask] = (genpareto.pdf(xlefttaileval, c=theta_lft[0], loc=theta_lft[1], scale=theta_lft[2]))
     outputf[extrgtmask] = (genpareto.pdf(xrighttaileval, c=theta_rgt[0], loc=theta_rgt[1], scale=theta_rgt[2]))
@@ -107,7 +137,6 @@ def fittails(outputx: np.ndarray, interpmask: np.ndarray, extlftmask: np.ndarray
 
     # We fit both tails using two points each, while making sure the integral of the density is 1
     initial_theta = [1.0, 0.0, 1.0, 1.0, 0.0, 1.0]
-    bounds__theta = [(0.0, None), (None, 0), (0.0, None), (0.0, None), (None, 0), (0.0, None)]
 
     # Left tail **************************************************
     # the x data to be plotted
@@ -142,12 +171,14 @@ def fittails(outputx: np.ndarray, interpmask: np.ndarray, extlftmask: np.ndarray
     initial_theta[5] = thetarigt[1]
 
     # # Minimize the function
+    # bounds__theta = [(0.0, None), (None, 0), (0.0, None), (0.0, None), (None, 0), (0.0, None)]
     # result = minimize(_fittailsandintegral, initial_theta, method='L-BFGS-B', 
     #                   bounds=bounds__theta, args=(outputx, interpmask, extlftmask, extrgtmask, outputf, whichdensity), 
     #                   options={'ftol': 1e-10, 'maxiter': 10000})
 
     # theta = [c1, loc1, scale1, c2, loc2, scale2]
     # Minimize the function using differential_evolution
+    bounds__theta = [(0.0, 99999999), (-500, 0), (0.0, 99999999), (0.0, 99999999), (-500, 0), (0.0, 99999999)]
     result = differential_evolution(_fittailsandintegral, bounds__theta, 
                                     args=(outputx, interpmask, extlftmask, extrgtmask, outputf, whichdensity),
                                     tol=1e-10, maxiter=10000)

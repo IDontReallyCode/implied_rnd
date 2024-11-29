@@ -83,6 +83,7 @@ EXTRAP_LINEAR = 10       # works only for METHOD_STDR_EXTRAPIV
 EXTRAP_GP3PTS = 20       # works only for METHOD_STDR_EXTRADEN
 EXTRAP_GBETA2 = 21       # works only for METHOD_STDR_EXTRADEN
 EXTRAP_ASYMPT = 30       # works only for METHOD_TLSM_EXTRAPIV
+EXTRAP_GEV3PT = 40       # works only for METHOD_STDR_EXTRADEN
 
 DENSITY_RANGE_DEFAULT = 0
 DENSITY_RANGE_EXTENDD = 1
@@ -802,8 +803,23 @@ def getrnd(K: np.ndarray, V: np.ndarray, S: float, rf: float, t: float, interp: 
         outputf[interpmask] = np.exp(rf * t) * np.gradient(np.gradient(p, outputx[interpmask], edge_order=2), outputx[interpmask], edge_order=2)
         # plt.plot(outputx[interpmask], outputf[interpmask]); plt.show()
         
+        npts = 2
+        xlefttailfit = outputx[interpmask][0:npts][::-1]
+        refpoint = outputx[interpmask][npts]
+        xlefttailfit = -1*(xlefttailfit - refpoint)
+        ylefttailfit = outputf[interpmask][0:npts][::-1]
+        xlefttailext = -1*(outputx[extlftmask][::-1] - refpoint)
+
+        xrighttailfit = outputx[interpmask][-npts:]
+        refpoint = outputx[interpmask][-npts-1]
+        xrighttailfit = xrighttailfit - refpoint
+        yrighttailfit = outputf[interpmask][-npts:]
+        xrighttailext = outputx[extrgtmask] - refpoint
+
         # Generalized Pareto and Generalized Beta 2.
         if extrap==EXTRAP_GP3PTS:
+            outputf = opt.fittails(outputx, interpmask, extlftmask, extrgtmask, outputf, opt.F_GENPARETO)
+
             # TODO 2024-11-14: This one here fits the 3 parameters of the Generalized Pareto distribution to the 3 points of the current density
             # We start with the left tail. Since Generalized Pareto is a distribution for the right tail, we need to flip the left tail.
             # We fit the left tail to the leftmost 3 points of the density
@@ -821,18 +837,18 @@ def getrnd(K: np.ndarray, V: np.ndarray, S: float, rf: float, t: float, interp: 
             # *****plt.scatter(x3ptsflipped, y3ptsflipped)
             # *****plt.show()
             # *****VERIFIED: Now we have what we need to fit the left tail.
-            npts = 2
-            xlefttailfit = outputx[interpmask][0:npts][::-1]
-            refpoint = outputx[interpmask][npts]
-            xlefttailfit = -1*(xlefttailfit - refpoint)
-            ylefttailfit = outputf[interpmask][0:npts][::-1]
-            xlefttailext = -1*(outputx[extlftmask][::-1] - refpoint)
+            # npts = 2
+            # xlefttailfit = outputx[interpmask][0:npts][::-1]
+            # refpoint = outputx[interpmask][npts]
+            # xlefttailfit = -1*(xlefttailfit - refpoint)
+            # ylefttailfit = outputf[interpmask][0:npts][::-1]
+            # xlefttailext = -1*(outputx[extlftmask][::-1] - refpoint)
 
-            xrighttailfit = outputx[interpmask][-npts:]
-            refpoint = outputx[interpmask][-npts-1]
-            xrighttailfit = xrighttailfit - refpoint
-            yrighttailfit = outputf[interpmask][-npts:]
-            xrighttailext = outputx[extrgtmask] - refpoint
+            # xrighttailfit = outputx[interpmask][-npts:]
+            # refpoint = outputx[interpmask][-npts-1]
+            # xrighttailfit = xrighttailfit - refpoint
+            # yrighttailfit = outputf[interpmask][-npts:]
+            # xrighttailext = outputx[extrgtmask] - refpoint
 
             # thetaleft = opt._fittail(xlefttailfit, ylefttailfit, opt.evalgenpareto)
 
@@ -891,7 +907,9 @@ def getrnd(K: np.ndarray, V: np.ndarray, S: float, rf: float, t: float, interp: 
             # plt.plot(outputx[interpmask], outputf[interpmask])
             # plt.plot(outputx[extrgtmask], outputf[extrgtmask])
             # plt.plot(outputx[extlftmask][::-1], outputf[extlftmask]); plt.show()
-            
+        elif extrap==EXTRAP_GEV3PT:
+            outputf = opt.fittails(outputx, interpmask, extlftmask, extrgtmask, outputf, opt.F_GENEXTREME)
+
 
         else:
             raise ValueError("This extrapolation method is not valid for this method.")
