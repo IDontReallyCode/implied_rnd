@@ -13,7 +13,43 @@ F_GENPARETO = 0
 F_GENEXTREME = 1
 
 
-def evalgenpareto(theta: np.ndarray, x: np.ndarray, f: np.ndarray):
+def evalgenpareto(theta: np.ndarray, x: np.ndarray):
+    # theta: Parameters for the Generalized Pareto distribution
+    # x: Data points at which to evaluate the PDF
+
+    if len(theta) == 2:
+        # Extract shape, location, and scale parameters from theta
+        shape, scale = theta
+        loc = 0
+    else:
+        shape, loc, scale = theta
+
+    # Calculate the PDF of the Generalized Pareto distribution at the given data points
+    f = genpareto.pdf(x, c=shape, loc=loc, scale=scale)
+
+    return f
+
+
+def evalgenextreme(theta: np.ndarray, x: np.ndarray):
+    # theta: Parameters for the Generalized Extreme Value distribution
+    # x: Data points at which to evaluate the PDF
+
+    if len(theta) == 2:
+        # Extract shape, location, and scale parameters from theta
+        shape, scale = theta
+        loc = 0
+    else:
+        shape, loc, scale = theta
+
+    # Create a GEV distribution object
+    gevdist = genextreme(shape, loc, scale)
+    # Calculate the PDF of the Generalized Extreme Value distribution at the given data points
+    f = gevdist.pdf(x)
+
+    return f
+
+
+def err2genpareto(theta: np.ndarray, x: np.ndarray, f: np.ndarray):
     # theta: Parameters for the Generalized Pareto distribution
     # x: Data points at which to evaluate the PDF
     # f: Observed frequencies or densities
@@ -33,7 +69,7 @@ def evalgenpareto(theta: np.ndarray, x: np.ndarray, f: np.ndarray):
     return e2
 
 
-def evalgenextreme(theta: np.ndarray, x: np.ndarray, f: np.ndarray):
+def err2genextreme(theta: np.ndarray, x: np.ndarray, f: np.ndarray):
     # theta: Parameters for the Generalized Extreme Value distribution
     # x: Data points at which to evaluate the PDF
     # f: Observed frequencies or densities
@@ -48,7 +84,7 @@ def evalgenextreme(theta: np.ndarray, x: np.ndarray, f: np.ndarray):
     # Create a GEV distribution object
     gevdist = genextreme(shape, loc, scale)
     # Calculate the PDF of the Generalized Extreme Value distribution at the given data points
-    fhat = gevdist.pdf(x, c=shape, loc=loc, scale=scale)
+    fhat = gevdist.pdf(x)
 
     # Compute the sum of squared errors between the observed and estimated densities
     e2 = np.sum((fhat - f) ** 2)
@@ -64,9 +100,13 @@ def evalgenbeta2(theta: np.ndarray, x: np.ndarray, f: np.ndarray):
 def _fittailsandintegral(theta: np.ndarray, outputx: np.ndarray, interpmask: np.ndarray, extlftmask: np.ndarray, extrgtmask: np.ndarray, outputf: np.ndarray, whichdensity: int = F_GENPARETO):
 
     if whichdensity == F_GENPARETO:
-        thisdensity = evalgenpareto
+        err2thisdensity = err2genpareto
+        evalthisdensity = evalgenpareto
+        tailshift = np.array([-1,+1])
     elif whichdensity == F_GENEXTREME:
-        thisdensity = evalgenextreme
+        err2thisdensity = err2genextreme
+        evalthisdensity = evalgenextreme
+        tailshift = np.array([+1,-1])
 
     # The data that does not change, determined by Breenden and Litzenberger (1978)
     xinterp = outputx[interpmask]
@@ -82,10 +122,10 @@ def _fittailsandintegral(theta: np.ndarray, outputx: np.ndarray, interpmask: np.
     # the x data to be fitted
     xlefttailfit = outputx[interpmask][0:2][::-1]
     refpoint = outputx[interpmask][1]
-    xlefttailfit = -1*(xlefttailfit - refpoint)
+    xlefttailfit = tailshift[0]*(xlefttailfit - refpoint)
     ylefttailfit = outputf[interpmask][0:2][::-1]
 
-    xlefttaileval = -1*(xlefttail - refpoint)
+    xlefttaileval = tailshift[0]*(xlefttail - refpoint)
 
     # Let us fit the scale and shape parameters of the Generalized Pareto Distribution, leaving location = 0
     # thetaleftnaive = _fittail(xlefttailfit, ylefttailfit)
@@ -95,9 +135,9 @@ def _fittailsandintegral(theta: np.ndarray, outputx: np.ndarray, interpmask: np.
 
     xrighttailfit = outputx[interpmask][-2:]
     refpoint = outputx[interpmask][-2]
-    xrighttailfit = xrighttailfit - refpoint
+    xrighttailfit = tailshift[1]*(xrighttailfit - refpoint)
     yrighttailfit = outputf[interpmask][-2:]
-    xrighttaileval = xrighttail - refpoint
+    xrightaileval = tailshift[1]*(xrighttail - refpoint)
 
     # thetarigtnaive = _fittail(xrighttailfit, yrighttailfit)
 
@@ -106,13 +146,14 @@ def _fittailsandintegral(theta: np.ndarray, outputx: np.ndarray, interpmask: np.
     # theta_right is the last three points of theta
     theta_rgt = theta[3:]
 
-    # Evaluate the Generalized Pareto density for the left tail
-    e2_lft = thisdensity(theta_lft, xlefttailfit, ylefttailfit)
-    # Evaluate the Generalized Pareto density for the right tail
-    e2_rgt = thisdensity(theta_rgt, xrighttailfit, yrighttailfit)
+    # Evaluate the error^2 for the left tail
+    e2_lft = err2thisdensity(theta_lft, xlefttailfit, ylefttailfit)
+    # Evaluate the error^2 for the right tail
+    e2_rgt = err2thisdensity(theta_rgt, xrighttailfit, yrighttailfit)
 
-    outputf[extlftmask] = (genpareto.pdf(xlefttaileval, c=theta_lft[0], loc=theta_lft[1], scale=theta_lft[2]))
-    outputf[extrgtmask] = (genpareto.pdf(xrighttaileval, c=theta_rgt[0], loc=theta_rgt[1], scale=theta_rgt[2]))
+    # Now, evaluate the the full density
+    outputf[extlftmask] = (evalthisdensity(xlefttaileval, c=theta_lft[0], loc=theta_lft[1], scale=theta_lft[2]))
+    outputf[extrgtmask] = (evalthisdensity(xrightaileval, c=theta_rgt[0], loc=theta_rgt[1], scale=theta_rgt[2]))
 
     # Now, I have outputx and outputf. I need to integrate the density over the entire range of outputx to make sure the integral is 1
     # I will use the trapezoidal rule to integrate the density
@@ -194,7 +235,7 @@ def fittails(outputx: np.ndarray, interpmask: np.ndarray, extlftmask: np.ndarray
     return outputf
 
 
-def _fittail(x: np.ndarray, f: np.ndarray, evaldensity = evalgenpareto):
+def _fittail(x: np.ndarray, f: np.ndarray, evaldensity = err2genpareto):
     # check how many points in x
     # if there are two points, then we fit the data on two points and set the initial theta to 1.0, 1.0
     # if there are three points or more, then we fit on three points and set the initial theta to 1.0, 0.0, 1.0

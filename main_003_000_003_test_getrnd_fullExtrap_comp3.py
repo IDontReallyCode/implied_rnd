@@ -89,11 +89,11 @@ def main():
         w = w / w.sum()
 
 
-        x0, y0, f0 = rnd.getrnd(K, V, S=S, rf=rf, t=t, interp=rnd.INTERP_POLYM4, densityrange=rnd.DENSITY_RANGE_DEFAULT, method=rnd.METHOD_STDR_EXTRADEN, extrap=rnd.EXTRAP_GP3PTS, fittingweights=w)
+        # x0, y0, f0 = rnd.getrnd(K, V, S=S, rf=rf, t=t, interp=rnd.INTERP_POLYM4, densityrange=rnd.DENSITY_RANGE_DEFAULT, method=rnd.METHOD_STDR_EXTRADEN, extrap=rnd.EXTRAP_GP3PTS, fittingweights=w)
         x1, y1, f1 = rnd.getrnd(K, V, S=S, rf=rf, t=t, interp=rnd.INTERP_POLYM4, densityrange=rnd.DENSITY_RANGE_DEFAULT, method=rnd.METHOD_STDR_EXTRADEN, extrap=rnd.EXTRAP_GEV3PT, fittingweights=w)
         x2, y2, f2 = rnd.getrnd(K, V, S=S, rf=rf, t=t, interp=rnd.INTERP_SVI000, densityrange=rnd.DENSITY_RANGE_DEFAULT, method=rnd.METHOD_TLSM_EXTRAPIV, extrap=rnd.EXTRAP_ASYMPT)
 
-        plt.plot(x0, f0, label="M4 G pareto")
+        # plt.plot(x0, f0, label="M4 G pareto")
         plt.plot(x1, f1, label="M4 GEV")
         plt.plot(x2, f2, label="SVI")
         plt.legend()
