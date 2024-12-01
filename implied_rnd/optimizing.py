@@ -3,7 +3,7 @@ from scipy.stats import genpareto
 from scipy.stats import genextreme
 from scipy.integrate import simps
 from scipy.optimize import differential_evolution
-
+from scipy.optimize import dual_annealing
 
 import matplotlib.pyplot as plt
 
@@ -152,8 +152,8 @@ def _fittailsandintegral(theta: np.ndarray, outputx: np.ndarray, interpmask: np.
     e2_rgt = err2thisdensity(theta_rgt, xrighttailfit, yrighttailfit)
 
     # Now, evaluate the the full density
-    outputf[extlftmask] = (evalthisdensity(xlefttaileval, c=theta_lft[0], loc=theta_lft[1], scale=theta_lft[2]))
-    outputf[extrgtmask] = (evalthisdensity(xrightaileval, c=theta_rgt[0], loc=theta_rgt[1], scale=theta_rgt[2]))
+    outputf[extlftmask] = (evalthisdensity(theta_lft, xlefttaileval))
+    outputf[extrgtmask] = (evalthisdensity(theta_rgt, xrightaileval))
 
     # Now, I have outputx and outputf. I need to integrate the density over the entire range of outputx to make sure the integral is 1
     # I will use the trapezoidal rule to integrate the density
@@ -219,10 +219,20 @@ def fittails(outputx: np.ndarray, interpmask: np.ndarray, extlftmask: np.ndarray
 
     # theta = [c1, loc1, scale1, c2, loc2, scale2]
     # Minimize the function using differential_evolution
-    bounds__theta = [(0.0, 99999999), (-500, 0), (0.0, 99999999), (0.0, 99999999), (-500, 0), (0.0, 99999999)]
-    result = differential_evolution(_fittailsandintegral, bounds__theta, 
-                                    args=(outputx, interpmask, extlftmask, extrgtmask, outputf, whichdensity),
-                                    tol=1e-10, maxiter=10000)
+    if whichdensity == F_GENPARETO:
+        bounds__theta = [(0.0, 99999999), (-500, 0), (0.0, 99999999), (0.0, 99999999), (-500, 0), (0.0, 99999999)]
+    elif whichdensity == F_GENEXTREME:
+        bounds__theta = [(1.0, 99999999), (-500, +500), (0.0, 99999999), (1.0, 99999999), (-500, +500), (0.0, 99999999)]
+
+    # DEBUG
+    # _fittailsandintegral(initial_theta, outputx, interpmask, extlftmask, extrgtmask, outputf, whichdensity)
+    
+    # result = differential_evolution(_fittailsandintegral, bounds__theta, 
+    #                                 args=(outputx, interpmask, extlftmask, extrgtmask, outputf, whichdensity))
+    
+    args = (outputx, interpmask, extlftmask, extrgtmask, outputf, whichdensity)
+    # Perform optimization using dual_annealing 
+    result = dual_annealing(_fittailsandintegral, bounds=bounds__theta, args=args)
     
 
     # The optimized theta values check the output from the fitted fnction

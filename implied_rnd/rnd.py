@@ -1,4 +1,11 @@
 """
+    Based on Breeden and Litzenberger (1986), we can infer the risk-neutral density from the prices of options.
+    The theory applies to European options.
+    For non-dividend paying equity, using call prices, we can assume no early exercise and assume we can use Breeden and Litzenberger
+    
+
+
+
     You need to provide two arrays: strikes, and IVs from OTM/ATM calls and puts
     
     There will be a default method applied, but you can select the method you want.
