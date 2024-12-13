@@ -122,6 +122,13 @@ The idea here is to compare the IVS fit of three basic models:
 Then repeat for SPX and SPY
 
 
+### PROJECT 004-002
+Here, we will focus on SPX.
+We will pick a large number of of days in the sample
+We will fit the POLY4 and SVI models
+Compare the RMSE on the quality of the IV fit.
+
+
 ## PROJECT 005 - Compare RND, 
 ### Description
 

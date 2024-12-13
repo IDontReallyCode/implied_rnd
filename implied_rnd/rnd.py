@@ -2,7 +2,7 @@
     Based on Breeden and Litzenberger (1986), we can infer the risk-neutral density from the prices of options.
     The theory applies to European options.
     For non-dividend paying equity, using call prices, we can assume no early exercise and assume we can use Breeden and Litzenberger
-    
+
 
 
 
@@ -202,6 +202,27 @@ def non_linear_SVI002(x, a0, a1, a2, a3, b0, b1, b2):
     # return a0 + a1 * np.sqrt(b0 + b1 * ((x+b3) ** 2)) + a2 * x + a3 * np.arctan(b2 * (x+b4))
     base  = non_linear_SVI000(x, a0, a1, a2, b0, b1)
     return (base + a3 * np.arctan(b2*(x-b0)))
+
+
+def _density_support(densityrange: Union[int, List[int]], K: np.ndarray) -> np.ndarray:
+    if isinstance(densityrange, int):
+        # Handle the case where densityrange is an integer
+        if densityrange == DENSITY_RANGE_DEFAULT:
+            localrange = np.array([min(K)*0.5, max(K)*1.5])
+        elif densityrange == DENSITY_RANGE_EXTENDD:
+            localrange = np.array([0.05, max(K)*2])
+        # Add more cases as needed
+        elif densityrange == DENSITY_RANGE_KEPASIS:
+            localrange = np.array([min(K), max(K)])
+        else:
+            raise ValueError("Invalid densityrange integer value")
+    elif isinstance(densityrange, list) and len(densityrange) == 2:
+        # Handle the case where densityrange is a 2-element list
+        localrange = np.array(densityrange)
+    else:
+        raise ValueError("Invalid densityrange format") 
+
+    return localrange
 
 
 def _interpolate(interp: int, x: np.ndarray, y: np.ndarray, newx: np.ndarray, weights: np.array=np.array([])) -> np.ndarray:
@@ -484,11 +505,11 @@ def _interpolate(interp: int, x: np.ndarray, y: np.ndarray, newx: np.ndarray, we
             thefunction = non_linear_SVI001
             # Initial guess for the parameters
             # return np.sqrt(a0 + a1 * (x-b0) + a2 * np.sqrt(b1 + (x-b0)**2) - a2 * np.sqrt(b1+b0**2) + a3 * np.arctan(x-b0))
-            #               [a0,           a1,  a2,  a3,   b0, b1]
-            initial_guess = [np.mean(y)**2, 0,   0.1,   0,    0,  1]
+            #               [a0,           a1,  a2,  a3,   b0, b1, b2]
+            initial_guess = [np.mean(y)**2, 0,   0.1,   0,  -0.1,  1]
 
             # Define bounds: (lower_bounds, upper_bounds)
-            lower_bounds = [-np.inf, -1,       0, -np.inf, -np.inf,       0]  # a0 > 0, -0.1 < b0
+            lower_bounds = [0      , -1,       0,       0, -np.inf,       0]  # a0 > 0, -0.1 < b0
             upper_bounds = [+np.inf, +1,  np.inf,  np.inf, +np.inf,  np.inf]  # b0 < 0.1, rest unbounded
             
         elif interp==INTERP_SVI002:
@@ -727,7 +748,12 @@ def getrnd(K: np.ndarray, V: np.ndarray, S: float, rf: float, t: float, interp: 
 
 
     Returns:
-        np.ndarray: Two NumPy arrays of size (nbpoints,) one for underlying values, and one for density.
+        outputx,                    : The support of the RND
+        outputy,                    : The smoothed IV curve
+        _scale(outputx, outputf),   : The RND, scaled to have a total probability of 1
+        outputf,                    : The RND, unscaled to compare with the scaled version
+        thetaIV,                    : The parameters of the model when fitting the IV curve
+        thetaRND                    : The parameters of the model when fitting the RND tails, if applicable
 
     Suppose extrap = EXTRAP_GP3PTS, method = METHOD_STDR_EXTRADEN, and densityrange = DENSITY_RANGE_EXTENDD
     """
@@ -739,41 +765,27 @@ def getrnd(K: np.ndarray, V: np.ndarray, S: float, rf: float, t: float, interp: 
     if V.shape != (N,):
         raise ValueError(f"Input V must be of same size ({N},), but got shape {V.shape}")
     
-    if isinstance(densityrange, int):
-        # Handle the case where densityrange is an integer
-        if densityrange == DENSITY_RANGE_DEFAULT:
-            localrange = np.array([min(K)*0.5, max(K)*1.5])
-        elif densityrange == DENSITY_RANGE_EXTENDD:
-            localrange = np.array([0.05, max(K)*2])
-        # Add more cases as needed
-        elif densityrange == DENSITY_RANGE_KEPASIS:
-            localrange = np.array([min(K), max(K)])
-        else:
-            raise ValueError("Invalid densityrange integer value")
-    elif isinstance(densityrange, list) and len(densityrange) == 2:
-        # Handle the case where densityrange is a 2-element list
-        localrange = np.array(densityrange)
-    else:
-        raise ValueError("Invalid densityrange format") 
+    # get the support for the density
+    localrange = _density_support(densityrange, K)
 
-    # Now, create the output support
+    # Now, create the output vectors
     outputx = np.linspace(localrange[0], localrange[1], nbpoints)
     outputy = np.zeros_like(outputx)
     outputf = np.zeros_like(outputx)
     
-    # get the interpolatable portion, and two sides of extrapolation
-    interpmask = (outputx>=np.min(K)) & (outputx<=np.max(K))
-    extlftmask = outputx<min(K)
-    extrgtmask = outputx>max(K)
+    # get the interpolatable portion, and two tails of extrapolation
+    maskinterpol = (outputx>=np.min(K)) & (outputx<=np.max(K))
+    masklefttail = outputx<min(K)
+    maskrightail = outputx>max(K)
 
-
+    # get the interpolatable portion of the IV curve
     if method==METHOD_STDR_EXTRAPIV:
         # interpolate first
-        outputy[interpmask] = _interpolate(interp, K, V, outputx[interpmask], fittingweights)
+        outputy[maskinterpol] = _interpolate(interp, K, V, outputx[maskinterpol], fittingweights)
 
         # Now extrapolate as a constant
-        outputy[extlftmask] = outputy[interpmask][0]
-        outputy[extrgtmask] = outputy[interpmask][-1]
+        outputy[masklefttail] = outputy[maskinterpol][0]
+        outputy[    maskrightail] = outputy[maskinterpol][-1]
         # plt.plot(outputx, outputy); plt.show()
         
         # now get Black-Scholes-Merton put prices.
@@ -786,11 +798,11 @@ def getrnd(K: np.ndarray, V: np.ndarray, S: float, rf: float, t: float, interp: 
         
         # now, we need to smooth the disconnection points and smooth them out
         mask = np.array([True, False, False, False, True])
-        indexhole = np.argmin(extlftmask)
+        indexhole = np.argmin(masklefttail)
         x = outputx[(indexhole - 2):(indexhole + 2 + 1)][mask]
         y = outputf[(indexhole - 2):(indexhole + 2 + 1)][mask]
         outputf[indexhole-1:indexhole+1+1] = np.interp(outputx[(indexhole - 2):(indexhole + 2 + 1)][~mask], x, y)
-        indexhole = np.argmax(extrgtmask)
+        indexhole = np.argmax(    maskrightail)
         x = outputx[(indexhole - 3):(indexhole + 1 + 1)][mask]
         y = outputf[(indexhole - 3):(indexhole + 1 + 1)][mask]
         outputf[indexhole-2:indexhole+1] = np.interp(outputx[(indexhole - 3):(indexhole+1+1)][~mask], x, y)
@@ -802,30 +814,30 @@ def getrnd(K: np.ndarray, V: np.ndarray, S: float, rf: float, t: float, interp: 
         
     elif method==METHOD_STDR_EXTRADEN:
         # interpolate first
-        outputy[interpmask] = _interpolate(interp, K, V, outputx[interpmask], fittingweights)
+        outputy[maskinterpol] = _interpolate(interp, K, V, outputx[maskinterpol], fittingweights)
         # now get Black-Scholes-Merton put prices.
-        p = bls('p', S=S, K=outputx[interpmask], t=t, r=rf, sigma=outputy[interpmask], return_as='np')
+        p = bls('p', S=S, K=outputx[maskinterpol], t=t, r=rf, sigma=outputy[maskinterpol], return_as='np')
         # plt.plot(outputx[interpmask], p[interpmask]); plt.show()
         # get convexity
-        outputf[interpmask] = np.exp(rf * t) * np.gradient(np.gradient(p, outputx[interpmask], edge_order=2), outputx[interpmask], edge_order=2)
+        outputf[maskinterpol] = np.exp(rf * t) * np.gradient(np.gradient(p, outputx[maskinterpol], edge_order=2), outputx[maskinterpol], edge_order=2)
         # plt.plot(outputx[interpmask], outputf[interpmask]); plt.show()
         
         npts = 2
-        xlefttailfit = outputx[interpmask][0:npts][::-1]
-        refpoint = outputx[interpmask][npts]
+        xlefttailfit = outputx[maskinterpol][0:npts][::-1]
+        refpoint = outputx[maskinterpol][npts]
         xlefttailfit = -1*(xlefttailfit - refpoint)
-        ylefttailfit = outputf[interpmask][0:npts][::-1]
-        xlefttailext = -1*(outputx[extlftmask][::-1] - refpoint)
+        ylefttailfit = outputf[maskinterpol][0:npts][::-1]
+        xlefttailext = -1*(outputx[masklefttail][::-1] - refpoint)
 
-        xrighttailfit = outputx[interpmask][-npts:]
-        refpoint = outputx[interpmask][-npts-1]
+        xrighttailfit = outputx[maskinterpol][-npts:]
+        refpoint = outputx[maskinterpol][-npts-1]
         xrighttailfit = xrighttailfit - refpoint
-        yrighttailfit = outputf[interpmask][-npts:]
-        xrighttailext = outputx[extrgtmask] - refpoint
+        yrighttailfit = outputf[maskinterpol][-npts:]
+        xrighttailext = outputx[    maskrightail] - refpoint
 
         # Generalized Pareto and Generalized Beta 2.
         if extrap==EXTRAP_GP3PTS:
-            outputf = opt.fittails(outputx, interpmask, extlftmask, extrgtmask, outputf, opt.F_GENPARETO)
+            outputf = opt.fittails(outputx, maskinterpol, masklefttail,     maskrightail, outputf, opt.F_GENPARETO)
 
             # TODO 2024-11-14: This one here fits the 3 parameters of the Generalized Pareto distribution to the 3 points of the current density
             # We start with the left tail. Since Generalized Pareto is a distribution for the right tail, we need to flip the left tail.
@@ -859,7 +871,7 @@ def getrnd(K: np.ndarray, V: np.ndarray, S: float, rf: float, t: float, interp: 
 
             # thetaleft = opt._fittail(xlefttailfit, ylefttailfit, opt.evalgenpareto)
 
-            outputf = opt.fittails(outputx, interpmask, extlftmask, extrgtmask, outputf, opt.F_GENPARETO)
+            outputf = opt.fittails(outputx, maskinterpol, masklefttail,     maskrightail, outputf, opt.F_GENPARETO)
 
             # DEBUG: check whether we have the right output
             # fout = genpareto.pdf(xlefttailfit, c=thetaleft[0], loc=0, scale=thetaleft[1])
@@ -915,7 +927,7 @@ def getrnd(K: np.ndarray, V: np.ndarray, S: float, rf: float, t: float, interp: 
             # plt.plot(outputx[extrgtmask], outputf[extrgtmask])
             # plt.plot(outputx[extlftmask][::-1], outputf[extlftmask]); plt.show()
         elif extrap==EXTRAP_GEV3PT:
-            outputf = opt.fittails(outputx, interpmask, extlftmask, extrgtmask, outputf, opt.F_GENEXTREME)
+            outputf = opt.fittails(outputx, maskinterpol, masklefttail,     maskrightail, outputf, opt.F_GENEXTREME)
 
 
         else:
@@ -947,7 +959,8 @@ def getrnd(K: np.ndarray, V: np.ndarray, S: float, rf: float, t: float, interp: 
     
 
 
-    return outputx, outputy, _scale(outputx, outputf)
+    # return outputx, outputy, _scale(outputx, outputf)
+    return outputx, outputy, _scale(outputx, outputf), outputf
     pause=1
     
     
